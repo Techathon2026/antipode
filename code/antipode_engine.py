@@ -52,7 +52,7 @@ except Exception:
 from stance_extractor import (  # noqa: E402
     ISSUE_TAXONOMY, resolve_side, opposite_side, verify_evidence, normalize,
 )
-from passage_selector import select_from_vault_item  # noqa: E402
+from passage_selector import select_from_vault_item, select_passages  # noqa: E402
 from antipode_sources import (  # noqa: E402
     collect, is_usable_candidate, keyword_hit, has_stance_signal, Candidate,
     RETRIEVAL_SOURCES,
@@ -127,6 +127,7 @@ class Funnel:
     per_source: dict = field(default_factory=dict)
     prescreened: int = 0
     enriched: int = 0        # 补过论证素材的候选数（HN 文章只有标题）
+    segmented: int = 0       # 长正文被切段、只判精选段落的候选数
     verify_calls: int = 0
     passed: int = 0          # 通过二次判立场的条数
     truncated: int = 0       # 通过但因超出 top_k 没输出的条数
@@ -157,6 +158,8 @@ class Funnel:
         L.append(f"   粗筛送检     {self.prescreened} 条（按沾题 + 立场信号排序）")
         if self.enriched:
             L.append(f"   补论证素材   {self.enriched} 条（HN 文章只有标题 → 取其讨论评论）")
+        if self.segmented:
+            L.append(f"   长文切段     {self.segmented} 条（整篇判会得中立 → 只判作者表态的那段）")
         L.append(f"④ 二次判立场   {self.verify_calls} 次调用 → 通过 {self.passed} 条")
         if self.rejected:
             detail = " / ".join(f"{k} {v}" for k, v in sorted(self.rejected.items()))
@@ -351,83 +354,86 @@ def build_antipode_items(
 
     # ---------- ④ 二次判立场（本环节是整个引擎的精度来源） ----------
     #
-    # 两条路径：
-    #   A. 候选带论证素材（HN 文章已补评论）→ **逐条评论判**，挑出真正站对立面的那条当证据。
-    #      为什么不在整段上判：讨论区天然是两派在吵，整段判容易得到"中立"，
-    #      而且拿不出"到底是哪句话"—— 逐条判才能给出可点开验证的证据。
-    #   B. 候选自带正文（V2EX 片段等）→ 整条判，证据优先用模型给的片段。
+    # 核心抽象：**判定单元**（unit）—— 不是把"一整条候选"当成一个整体去判，
+    # 而是先把候选拆成若干个"作者真的在表态"的小单元，再逐个判。
+    # 三种来源：
+    #   A. HN 文章补来的讨论评论 → 每条评论一个单元
+    #      （讨论区天然两派在吵，整段判会得到"中立"且拿不出"是哪句话"）
+    #   B. 长正文（如 CSDN 2000+ 字教程）→ 段落粗筛后取精选段落
+    #      ⚠️ 这是实测逼出来的：CSDN 文章多是"微服务的优缺点"这种**两面都讲**的教程，
+    #      整篇判必然得中立 → 18 条候选全军覆没。切段后只判"作者表态的那段"才对。
+    #   C. 其余（V2EX 单议题帖等）→ 整条一个单元
+    LONG_TEXT_BODY = 800  # 超过这个长度就切段（V2EX 正文约 571 字，通常不切）
     accepted: list[dict] = []
+
     for c in to_verify:
         if not keyword_hit(c.text, anchors):
             f.reject("不沾题")
             continue
 
+        units: list[dict] = []
         comments = (c.extra or {}).get("comments") or []
-        picked: dict | None = None
-        last_js: list[Judgment] = []
-
         if comments:
-            for cm in comments[:3]:
-                try:
-                    js = backend.judge([cm["text"]], issue_id)
-                except Exception as e:
-                    print(f"    [!] 判评论失败：{e}", file=sys.stderr)
-                    f.reject("调用失败")
-                    continue
-                f.verify_calls += len(js) or 1
-                last_js = js
-                hit = next((j for j in js if j.issue_id == issue_id and j.side == expect_side), None)
-                if hit:
-                    picked = {
-                        "hit": hit,
-                        "span": first_sentence(cm["text"]),
-                        "ev_source": "hn_comment",
-                        "ev_url": cm.get("url") or c.url,
-                        "excerpt": re.sub(r"\s+", " ", cm["text"]).strip()[:400],
-                    }
-                    break
+            units = [
+                {"text": cm["text"], "url": cm.get("url") or c.url, "kind": "hn_comment"}
+                for cm in comments[:3]
+            ]
+        elif len(c.text) > LONG_TEXT_BODY:
+            passages, _ = select_passages(c.text, max_passages=3)
+            if passages:
+                units = [
+                    {"text": p.text, "url": c.url, "kind": "passage"} for p in passages
+                ]
+                f.segmented += 1
+        if not units:
+            units = [{"text": c.text, "url": c.url, "kind": "whole"}]
 
-        if picked is None:
+        picked: dict | None = None
+        seen_sides: set[str] = set()
+        for u in units:
             try:
-                js = backend.judge([c.text], issue_id)
+                js = backend.judge([u["text"]], issue_id)
             except Exception as e:
                 print(f"    [!] 判立场失败：{e}", file=sys.stderr)
                 f.reject("调用失败")
                 continue
             f.verify_calls += len(js) or 1
-            last_js = js
+            seen_sides |= {j.side for j in js if j.issue_id == issue_id} or {"unknown"}
             hit = next((j for j in js if j.issue_id == issue_id and j.side == expect_side), None)
             if hit is None:
-                sides = {j.side for j in js} or {"unknown"}
-                if sides <= {"unknown"}:
-                    f.reject("判不出")
-                elif sides & {"neutral", "undetermined"}:
-                    f.reject("中立")
-                else:
-                    f.reject("站错边")
                 continue
+
             span = (hit.evidence_span or "").strip()
-            if span and verify_evidence(c.text, span):
+            if u["kind"] == "whole" and span and verify_evidence(u["text"], span):
                 ev_source = "model"
             else:
-                span = first_sentence(c.text)
-                ev_source = "candidate_text"
-            if not verify_evidence(c.text, span):
+                span = first_sentence(u["text"])
+                ev_source = {"hn_comment": "hn_comment", "passage": "passage"}.get(u["kind"], "candidate_text")
+            if not verify_evidence(u["text"], span):
                 f.reject("证据缺失")
                 continue
-            # 问句标题的候选：如果模型只能拿标题本身当证据，说明它在**正文里**
-            # 拿不出立场句 —— 那就是个技术求助帖，不是观点表达。
-            # （实测：「单体服务中，模块之间相互调用怎么优雅地实现？」被判支持单体，0.95）
-            if is_q and normalize(span) == normalize(c.title or ""):
+            # 问句标题的候选：模型只能拿标题本身当证据 → 它在正文里拿不出立场句
+            if is_q(c) and normalize(span) == normalize(c.title or ""):
                 f.reject("只有提问，正文无立场")
                 continue
             picked = {
                 "hit": hit,
                 "span": span,
                 "ev_source": ev_source,
-                "ev_url": c.url,
-                "excerpt": re.sub(r"\s+", " ", c.text).strip()[:400],
+                "ev_url": u["url"],
+                "excerpt": re.sub(r"\s+", " ", u["text"]).strip()[:400],
             }
+            break
+
+        if picked is None:
+            # 全部判定单元都没通过 —— 按"见到过哪些立场"归类拒因（漏斗要能说清为什么丢）
+            if not seen_sides or seen_sides <= {"unknown"}:
+                f.reject("判不出")
+            elif seen_sides & {"neutral", "undetermined"}:
+                f.reject("中立")
+            else:
+                f.reject("站错边")
+            continue
 
         accepted.append({"c": c, **picked})
 

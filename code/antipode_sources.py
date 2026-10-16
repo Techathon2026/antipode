@@ -811,11 +811,18 @@ ARGUMENT_HINTS = re.compile(
 )
 
 # 标题里带立场信号（主要针对 HN 文章标题 —— 标题本身就是观点）
+# ⚠️ 中文侧曾经明显弱于英文侧（只写了"为什么/其实/不如"），导致 CSDN 那种
+#    "单体架构的优缺点复盘"标题被判成"没有立场信号"，在粗筛排队时被挤到后面。
+#    而英文侧却写了 why/goodbye/better/overkill —— 这种不对称其实就是"对中文源支持不足"。
 STANCE_HINTS = re.compile(
-    r"(why |goodbye|death|dead|future|first|mistake|stop |don't|never|overrated"
+    r"("
+    r"why |goodbye|death|dead|future|first|mistake|stop |don't|never|overrated"
     r"|back to|vs\.? |versus|better|worse|overkill|still |fallacy|harmful|not "
     r"|instead|considered|enough|rethink|problem|trap"
-    r"|为什么|其实|不如|反对|别再|才怪|翻车|才是|真香|踩坑)",
+    r"|为什么|其实|不如|反对|别再|才怪|翻车|才是|真香|踩坑"
+    r"|优缺点|缺点|不足|对比|复盘|选型|取舍|抉择|权衡|代价|该不该|要不要"
+    r"|值不值|值不值得|踩雷|劝退|过时|值得吗|有必要|换成|迁移|回退|改回|落伍"
+    r")",
     re.I,
 )
 
