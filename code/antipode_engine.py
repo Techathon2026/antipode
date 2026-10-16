@@ -68,6 +68,28 @@ CST = timezone(timedelta(hours=8))
 # counter_type：P0 只做 A 类（观点对立），B/C 类留字段位
 COUNTER_TYPE = "opposing_view"
 
+# 对立性表述闸门。
+#
+# ⚠️ 这条是实测逼出来的：模型对"提到某一方的技术内容"过于宽容 ——
+# 《vue3 源码解析》《vuejs 什么情况下用》这类**技术教程/问答帖**被判成"支持 Vue"，
+# 于是进了反库。但它们是"关于某一方的内容"，不是"反对另一方的主张"。
+# 评委点开看到一篇教程，整个产品的可信度就掉了。
+#
+# 判据：反信息必须包含**负面评价或转向**的表述 —— "缺点/代价/踩坑/放弃/转向/不如…"
+# （英文侧同理：problem/worse/abandon/moved back/instead of…）。
+# 这条同时收紧了两类误判：纯教程帖、以及只描述某一方的中立内容。
+OPPOSITION_SIGNALS = re.compile(
+    r"("
+    r"缺点|不足|弊端|问题|代价|成本高|坑|踩坑|翻车|吐槽|嫌|麻烦|复杂|痛苦"
+    r"|反对|放弃|转向|转投|回退|回撤|改回|换回|迁回|合并回|不如|不再|没有必要|没必要"
+    r"|过度|过度设计|失败|教训|后悔|劝退|不值得|错误|弊大于利|得不偿失|吃过大亏"
+    r"|problem|worse|worsened|downside|drawback|cost|painful|abandon|dropped|replaced"
+    r"|moved back|moving back|switch(ed|ing) back|instead of|regret|avoid|mistake|overkill"
+    r"|no longer|stop using|goodbye|death of|dead end"
+    r")",
+    re.I,
+)
+
 
 # ---------------------------------------------------------------------------
 # 离线兜底候选（现场断网时用；内容是真实形态的样例，不是编造的）
@@ -128,6 +150,7 @@ class Funnel:
     prescreened: int = 0
     enriched: int = 0        # 补过论证素材的候选数（HN 文章只有标题）
     segmented: int = 0       # 长正文被切段、只判精选段落的候选数
+    opinion_checks: int = 0  # 观点性复检的调用次数
     verify_calls: int = 0
     passed: int = 0          # 通过二次判立场的条数
     truncated: int = 0       # 通过但因超出 top_k 没输出的条数
@@ -160,6 +183,8 @@ class Funnel:
             L.append(f"   补论证素材   {self.enriched} 条（HN 文章只有标题 → 取其讨论评论）")
         if self.segmented:
             L.append(f"   长文切段     {self.segmented} 条（整篇判会得中立 → 只判作者表态的那段）")
+        if self.opinion_checks:
+            L.append(f"   观点性复检   {self.opinion_checks} 次（拦下教程 / 源码解析类非观点内容）")
         L.append(f"④ 二次判立场   {self.verify_calls} 次调用 → 通过 {self.passed} 条")
         if self.rejected:
             detail = " / ".join(f"{k} {v}" for k, v in sorted(self.rejected.items()))
@@ -233,6 +258,47 @@ def make_summary(text: str, backend) -> tuple[str, str]:
     return extractive_summary(text), "extractive"
 
 
+def is_opinion_post(text: str, backend) -> bool | None:
+    """观点性复检：这段内容是在**表达主张**，还是只在**介绍某个技术的用法/原理**？
+
+    返回 True / False / None（None = 后端不支持，**放着通过**，宁可宽也不要误杀）。
+
+    为什么需要它：立场抽取是在"议题二元结构"里判的，所以任何**提到某一方**的技术内容
+    都可能被判成"支持那一方"。实测《vue3 源码解析》这种教程帖就一路通过了所有闸门
+    （对立度 0.95、有对立性表述词），进了反库 —— 评委点开看到教程，可信度就掉了。
+
+    为什么不直接改 stance_extractor 的 prompt：早前做过三次受控实验，
+    改 prompt 反而让整体准确率从 90.2% 掉到 85~88%。所以这里**另起一问**，
+    只加精度、不动原判据。
+    """
+    if isinstance(backend, MockBackend):
+        return None  # 离线假模型回答不了这类问题，直接放行
+    try:
+        from openai import OpenAI
+
+        key = os.environ.get("OPENAI_API_KEY", "").strip()
+        model = os.environ.get("STANCE_MODEL", "").strip()
+        if not key or not model:
+            return None
+        client = OpenAI(api_key=key, base_url=os.environ.get("OPENAI_BASE_URL", "").strip() or None)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content":
+                       "下面这条内容是在**表达作者的主张/判断**，还是只在**介绍某个技术的用法或原理**？\n"
+                       "只回答一个字母：A（表达主张）或 B（技术介绍）。\n\n" + text[:900]}],
+            temperature=0,
+        )
+        ans = (resp.choices[0].message.content or "").strip().upper()
+        if ans.startswith("A"):
+            return True
+        if ans.startswith("B"):
+            return False
+        return None
+    except Exception as e:
+        print(f"    [!] 观点性复检失败，放行：{e}", file=sys.stderr)
+        return None
+
+
 def now_iso() -> str:
     return datetime.now(CST).isoformat(timespec="seconds")
 
@@ -248,6 +314,7 @@ def build_antipode_items(
     origin: str = "",
     max_verify: int = 8,
     top_k: int = 3,
+    min_score: float = 0.7,
     origin_bonus: float = 1.25,
     enrich: bool = True,
     offline: bool = False,
@@ -435,6 +502,28 @@ def build_antipode_items(
                 f.reject("站错边")
             continue
 
+        # 对立性表述闸门：模型说它站对立面，但它得有"反对/转向"的话术才算反信息。
+        # 挡的是"关于某一方的技术内容"（教程、源码解析、入门问答）——
+        # 那种内容不含任何负面评价或转向，不是"反面观点"。
+        if not OPPOSITION_SIGNALS.search(f"{c.title}\n{picked['excerpt']}"):
+            f.reject("无对立性表述")
+            continue
+
+        # 闸门③：对立度必须达阈值。
+        # 这是设计文档里"防杠精三道闸门"的第三条（前两条：要有论证结构、要有可验证出处），
+        # 实现时漏了。实测代价：《vuejs 什么情况下用》这种低置信度内容混进了反库。
+        if float(hit.confidence) < min_score:
+            f.reject(f"对立度不足（<{min_score}）")
+            continue
+
+        # 观点性复检（精度收口）：教程/源码解析/入门问答不是"反面观点"。
+        verdict = is_opinion_post(f"{c.title}\n{picked['excerpt']}", backend)
+        if verdict is not None:
+            f.opinion_checks += 1
+        if verdict is False:
+            f.reject("技术介绍，非观点")
+            continue
+
         accepted.append({"c": c, **picked})
 
     # 排序：按**质量问题**（对立度），同源只给温和加成。
@@ -609,6 +698,7 @@ def main() -> int:
     ap.add_argument("--offline", action="store_true", help="用内置候选，不联网")
     ap.add_argument("--max-verify", type=int, default=8)
     ap.add_argument("--top-k", type=int, default=3)
+    ap.add_argument("--min-score", type=float, default=0.7, help="闸门③：对立度阈值（低于它不进反库）")
     ap.add_argument("--origin-bonus", type=float, default=1.25,
                     help="排序时对同源候选的加成倍数（1.0 = 不加成）")
     ap.add_argument("--no-enrich", action="store_true", help="不补论证素材（HN 讨论评论）")
@@ -649,7 +739,7 @@ def main() -> int:
         items, f = build_antipode_items(
             vault_item, vault, backend=backend, sources=sources, origin=args.origin,
             max_verify=args.max_verify, top_k=args.top_k, offline=args.offline,
-            origin_bonus=args.origin_bonus, enrich=not args.no_enrich,
+            origin_bonus=args.origin_bonus, enrich=not args.no_enrich, min_score=args.min_score,
         )
     except RuntimeError as e:
         print(f"❌ {e}", file=sys.stderr)
