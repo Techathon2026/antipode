@@ -1,0 +1,1278 @@
+{
+  "source": "D:\\documents\\techathon2026\\data\\emails.csv",
+  "target": "D:\\documents\\techathon2026\\data\\email_headers_20261016_T01-T08_labeled.csv",
+  "backup": "D:\\documents\\techathon2026\\data\\backups\\email_headers_20261016_T01-T08_labeled_before_merge_2026-10-16T14-04-49-768Z.csv",
+  "source_sha256": "21b124ffc62a3c314e3e9601a37601efda0e1f2b5d0e4a305877e271460c3b02",
+  "before_sha256": "91bd36f7fc8228ff86b172cc0d19852e9ff32d7a8deff2f9f28410c0c8dc8d40",
+  "after_sha256": "d24011bd8d23dae98b20cce73e7333edb6c638ad73d9d15eda6dde94c498ddf4",
+  "original_rows": 540,
+  "original_duplicates_removed": 41,
+  "incoming_rows": 164,
+  "incoming_duplicates_skipped": 134,
+  "added_rows": 30,
+  "final_rows": 529,
+  "counts": {
+    "T01": 76,
+    "T02": 58,
+    "T03": 121,
+    "T04": 15,
+    "T05": 16,
+    "T06": 128,
+    "T07": 42,
+    "T08": 73
+  },
+  "new_review_rows": [
+    10,
+    61,
+    62,
+    67,
+    68,
+    81
+  ],
+  "total_review_rows": 43,
+  "duplicates": [
+    {
+      "source": "existing",
+      "source_row": 3,
+      "removed_id": "INBOX:1:1785475561",
+      "retained_id": "INBOX:1:1785475563",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 10,
+      "removed_id": "INBOX:1:1785475554",
+      "retained_id": "INBOX:1:1785475562",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 18,
+      "removed_id": "INBOX:1:1785475546",
+      "retained_id": "INBOX:1:1785475549",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 25,
+      "removed_id": "INBOX:1:1785475539",
+      "retained_id": "INBOX:1:1785475549",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 32,
+      "removed_id": "INBOX:1:1785475532",
+      "retained_id": "INBOX:1:1785475533",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 68,
+      "removed_id": "INBOX:1:1785475496",
+      "retained_id": "INBOX:1:1785475529",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 76,
+      "removed_id": "INBOX:1:1785475488",
+      "retained_id": "INBOX:1:1785475489",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 84,
+      "removed_id": "INBOX:1:1785475480",
+      "retained_id": "INBOX:1:1785475519",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 86,
+      "removed_id": "INBOX:1:1785475478",
+      "retained_id": "INBOX:1:1785475486",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 87,
+      "removed_id": "INBOX:1:1785475477",
+      "retained_id": "INBOX:1:1785475486",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 106,
+      "removed_id": "INBOX:1:1785475458",
+      "retained_id": "INBOX:1:1785475461",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 131,
+      "removed_id": "INBOX:1:1785475433",
+      "retained_id": "INBOX:1:1785475521",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 140,
+      "removed_id": "INBOX:1:1785475424",
+      "retained_id": "INBOX:1:1785475430",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 179,
+      "removed_id": "INBOX:1:1785475385",
+      "retained_id": "INBOX:1:1785475521",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 182,
+      "removed_id": "INBOX:1:1785475382",
+      "retained_id": "INBOX:1:1785475384",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 185,
+      "removed_id": "INBOX:1:1785475379",
+      "retained_id": "INBOX:1:1785475434",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 186,
+      "removed_id": "INBOX:1:1785475378",
+      "retained_id": "INBOX:1:1785475386",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 199,
+      "removed_id": "INBOX:1:1785475365",
+      "retained_id": "INBOX:1:1785475367",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 202,
+      "removed_id": "INBOX:1:1785475362",
+      "retained_id": "INBOX:1:1785475386",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 211,
+      "removed_id": "INBOX:1:1785475353",
+      "retained_id": "INBOX:1:1785475354",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 235,
+      "removed_id": "INBOX:1:1785475329",
+      "retained_id": "INBOX:1:1785475343",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 239,
+      "removed_id": "INBOX:1:1785475325",
+      "retained_id": "INBOX:1:1785475327",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 247,
+      "removed_id": "INBOX:1:1785475317",
+      "retained_id": "INBOX:1:1785475318",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 322,
+      "removed_id": "INBOX:1:1785475241",
+      "retained_id": "INBOX:1:1785475285",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 361,
+      "removed_id": "INBOX:1:1785475202",
+      "retained_id": "INBOX:1:1785475207",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 376,
+      "removed_id": "INBOX:1:1785475187",
+      "retained_id": "INBOX:1:1785475274",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 382,
+      "removed_id": "INBOX:1:1785475181",
+      "retained_id": "INBOX:1:1785475238",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 396,
+      "removed_id": "INBOX:1:1785475167",
+      "retained_id": "INBOX:1:1785475168",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 398,
+      "removed_id": "INBOX:1:1785475165",
+      "retained_id": "INBOX:1:1785475254",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 407,
+      "removed_id": "INBOX:1:1785475156",
+      "retained_id": "INBOX:1:1785475188",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 412,
+      "removed_id": "INBOX:1:1785475150",
+      "retained_id": "INBOX:1:1785475180",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 418,
+      "removed_id": "INBOX:1:1785475144",
+      "retained_id": "INBOX:1:1785475184",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 425,
+      "removed_id": "INBOX:1:1785475137",
+      "retained_id": "INBOX:1:1785475220",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 441,
+      "removed_id": "INBOX:1:1785475121",
+      "retained_id": "INBOX:1:1785475122",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 452,
+      "removed_id": "INBOX:1:1785475110",
+      "retained_id": "INBOX:1:1785475117",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 474,
+      "removed_id": "INBOX:1:1785475087",
+      "retained_id": "INBOX:1:1785475153",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 494,
+      "removed_id": "INBOX:1:1785475065",
+      "retained_id": "INBOX:1:1785475081",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 499,
+      "removed_id": "INBOX:1:1785475060",
+      "retained_id": "INBOX:1:1785475175",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 533,
+      "removed_id": "INBOX:1:1785475026",
+      "retained_id": "INBOX:1:1785475099",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 535,
+      "removed_id": "INBOX:1:1785475024",
+      "retained_id": "INBOX:1:1785475099",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "existing",
+      "source_row": 540,
+      "removed_id": "Sent Items:3:1791384997",
+      "retained_id": "INBOX:1:1785475431",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 1,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475445",
+      "retained_id": "INBOX:1:1785475420",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 4,
+      "removed_id": "import:emails:53193177df82:1785475448",
+      "retained_id": "INBOX:1:1785475421",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 6,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475450",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475449",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 9,
+      "removed_id": "import:emails:53193177df82:1785475453",
+      "retained_id": "INBOX:1:1785475423",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 11,
+      "removed_id": "import:emails:53193177df82:1785475456",
+      "retained_id": "INBOX:1:1785475426",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 12,
+      "removed_id": "import:emails:53193177df82:1785475457",
+      "retained_id": "INBOX:1:1785475428",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 13,
+      "removed_id": "import:emails:53193177df82:1785475458",
+      "retained_id": "INBOX:1:1785475429",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 15,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475460",
+      "retained_id": "INBOX:1:1785475521",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 16,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475461",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475454",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 17,
+      "removed_id": "import:emails:4f9c212fc153:1785475462",
+      "retained_id": "INBOX:1:1785475432",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 19,
+      "removed_id": "import:emails:53193177df82:1785475464",
+      "retained_id": "INBOX:1:1785475434",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 20,
+      "removed_id": "import:emails:53193177df82:1785475465",
+      "retained_id": "INBOX:1:1785475435",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 21,
+      "removed_id": "import:emails:97212679dc43:1785475466",
+      "retained_id": "INBOX:1:1785475436",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 22,
+      "removed_id": "import:emails:3e4553e91015:1785475467",
+      "retained_id": "INBOX:1:1785475437",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 23,
+      "removed_id": "import:emails:53193177df82:1785475468",
+      "retained_id": "INBOX:1:1785475438",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 24,
+      "removed_id": "import:emails:97212679dc43:1785475469",
+      "retained_id": "INBOX:1:1785475439",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 25,
+      "removed_id": "import:emails:53193177df82:1785475470",
+      "retained_id": "INBOX:1:1785475440",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 26,
+      "removed_id": "import:emails:53193177df82:1785475471",
+      "retained_id": "INBOX:1:1785475441",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 27,
+      "removed_id": "import:emails:53193177df82:1785475472",
+      "retained_id": "INBOX:1:1785475442",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 28,
+      "removed_id": "import:emails:53193177df82:1785475473",
+      "retained_id": "INBOX:1:1785475443",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 29,
+      "removed_id": "import:emails:53193177df82:1785475474",
+      "retained_id": "INBOX:1:1785475444",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 30,
+      "removed_id": "import:emails:53193177df82:1785475475",
+      "retained_id": "INBOX:1:1785475445",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 31,
+      "removed_id": "import:emails:53193177df82:1785475476",
+      "retained_id": "INBOX:1:1785475446",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 32,
+      "removed_id": "import:emails:53193177df82:1785475477",
+      "retained_id": "INBOX:1:1785475447",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 33,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475478",
+      "retained_id": "INBOX:1:1785475448",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 34,
+      "removed_id": "import:emails:97212679dc43:1785475479",
+      "retained_id": "INBOX:1:1785475450",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 35,
+      "removed_id": "import:emails:7a60092fd277:1785475480",
+      "retained_id": "INBOX:1:1785475451",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 36,
+      "removed_id": "import:emails:e0adc2dc1bd0:1785475481",
+      "retained_id": "INBOX:1:1785475452",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 37,
+      "removed_id": "import:emails:53193177df82:1785475482",
+      "retained_id": "INBOX:1:1785475453",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 38,
+      "removed_id": "import:emails:97212679dc43:1785475483",
+      "retained_id": "INBOX:1:1785475454",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 39,
+      "removed_id": "import:emails:53193177df82:1785475484",
+      "retained_id": "INBOX:1:1785475455",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 40,
+      "removed_id": "import:emails:97212679dc43:1785475485",
+      "retained_id": "INBOX:1:1785475456",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 41,
+      "removed_id": "import:emails:53193177df82:1785475486",
+      "retained_id": "INBOX:1:1785475457",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 42,
+      "removed_id": "import:emails:a8ee839ba484:1785475488",
+      "retained_id": "INBOX:1:1785475459",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 43,
+      "removed_id": "import:emails:97212679dc43:1785475489",
+      "retained_id": "INBOX:1:1785475460",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 44,
+      "removed_id": "import:emails:3e4553e91015:1785475491",
+      "retained_id": "INBOX:1:1785475462",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 45,
+      "removed_id": "import:emails:53193177df82:1785475492",
+      "retained_id": "INBOX:1:1785475463",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 46,
+      "removed_id": "import:emails:53193177df82:1785475493",
+      "retained_id": "INBOX:1:1785475464",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 49,
+      "removed_id": "import:emails:4f9c212fc153:1785475496",
+      "retained_id": "INBOX:1:1785475466",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 50,
+      "removed_id": "import:emails:53193177df82:1785475497",
+      "retained_id": "INBOX:1:1785475467",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 51,
+      "removed_id": "import:emails:53193177df82:1785475498",
+      "retained_id": "INBOX:1:1785475468",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 52,
+      "removed_id": "import:emails:53193177df82:1785475499",
+      "retained_id": "INBOX:1:1785475469",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 53,
+      "removed_id": "import:emails:77fc512deb59:1785475500",
+      "retained_id": "INBOX:1:1785475470",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 54,
+      "removed_id": "import:emails:53193177df82:1785475501",
+      "retained_id": "INBOX:1:1785475471",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 55,
+      "removed_id": "import:emails:53193177df82:1785475502",
+      "retained_id": "INBOX:1:1785475472",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 56,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475503",
+      "retained_id": "INBOX:1:1785475521",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 57,
+      "removed_id": "import:emails:53193177df82:1785475504",
+      "retained_id": "INBOX:1:1785475473",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 58,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475505",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475494",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 59,
+      "removed_id": "import:emails:97212679dc43:1785475506",
+      "retained_id": "INBOX:1:1785475474",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 60,
+      "removed_id": "import:emails:53193177df82:1785475507",
+      "retained_id": "INBOX:1:1785475475",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 63,
+      "removed_id": "import:emails:0f7f2555fbeb:1785475510",
+      "retained_id": "INBOX:1:1785475486",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 64,
+      "removed_id": "import:emails:0f7f2555fbeb:1785475511",
+      "retained_id": "INBOX:1:1785475486",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 65,
+      "removed_id": "import:emails:53193177df82:1785475512",
+      "retained_id": "INBOX:1:1785475479",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 69,
+      "removed_id": "import:emails:53193177df82:1785475516",
+      "retained_id": "INBOX:1:1785475482",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 70,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475517",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475494",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 71,
+      "removed_id": "import:emails:97212679dc43:1785475518",
+      "retained_id": "INBOX:1:1785475484",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 72,
+      "removed_id": "import:emails:0f7f2555fbeb:1785475519",
+      "retained_id": "INBOX:1:1785475486",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 73,
+      "removed_id": "import:emails:97212679dc43:1785475520",
+      "retained_id": "INBOX:1:1785475487",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 74,
+      "removed_id": "import:emails:53193177df82:1785475521",
+      "retained_id": "INBOX:1:1785475489",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 75,
+      "removed_id": "import:emails:53193177df82:1785475522",
+      "retained_id": "INBOX:1:1785475489",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 76,
+      "removed_id": "import:emails:53193177df82:1785475523",
+      "retained_id": "INBOX:1:1785475490",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 77,
+      "removed_id": "import:emails:53193177df82:1785475524",
+      "retained_id": "INBOX:1:1785475491",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 78,
+      "removed_id": "import:emails:a8ee839ba484:1785475525",
+      "retained_id": "INBOX:1:1785475492",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 79,
+      "removed_id": "import:emails:53193177df82:1785475526",
+      "retained_id": "INBOX:1:1785475493",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 82,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475529",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475527",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 83,
+      "removed_id": "import:emails:53193177df82:1785475530",
+      "retained_id": "INBOX:1:1785475495",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 84,
+      "removed_id": "import:emails:7a60092fd277:1785475531",
+      "retained_id": "INBOX:1:1785475529",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 85,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475532",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475494",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 87,
+      "removed_id": "import:emails:97212679dc43:1785475534",
+      "retained_id": "INBOX:1:1785475497",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 88,
+      "removed_id": "import:emails:97212679dc43:1785475535",
+      "retained_id": "INBOX:1:1785475498",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 89,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475536",
+      "retained_id": "INBOX:1:1785475521",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 90,
+      "removed_id": "import:emails:a76f4da76fd5:1785475537",
+      "retained_id": "INBOX:1:1785475499",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 91,
+      "removed_id": "import:emails:53193177df82:1785475538",
+      "retained_id": "INBOX:1:1785475500",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 92,
+      "removed_id": "import:emails:53193177df82:1785475539",
+      "retained_id": "INBOX:1:1785475501",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 93,
+      "removed_id": "import:emails:53193177df82:1785475540",
+      "retained_id": "INBOX:1:1785475502",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 94,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475541",
+      "retained_id": "INBOX:1:1785475521",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 95,
+      "removed_id": "import:emails:53193177df82:1785475542",
+      "retained_id": "INBOX:1:1785475503",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 96,
+      "removed_id": "import:emails:53193177df82:1785475543",
+      "retained_id": "INBOX:1:1785475504",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 97,
+      "removed_id": "import:emails:53193177df82:1785475544",
+      "retained_id": "INBOX:1:1785475505",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 98,
+      "removed_id": "import:emails:53193177df82:1785475545",
+      "retained_id": "INBOX:1:1785475506",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 99,
+      "removed_id": "import:emails:53193177df82:1785475546",
+      "retained_id": "INBOX:1:1785475507",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 101,
+      "removed_id": "import:emails:53193177df82:1785475548",
+      "retained_id": "INBOX:1:1785475509",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 102,
+      "removed_id": "import:emails:53193177df82:1785475549",
+      "retained_id": "INBOX:1:1785475510",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 103,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475550",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475494",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 104,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475551",
+      "retained_id": "INBOX:1:1785475533",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 106,
+      "removed_id": "import:emails:53193177df82:1785475553",
+      "retained_id": "INBOX:1:1785475511",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 107,
+      "removed_id": "import:emails:53193177df82:1785475555",
+      "retained_id": "INBOX:1:1785475513",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 108,
+      "removed_id": "import:emails:97212679dc43:1785475556",
+      "retained_id": "INBOX:1:1785475514",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 109,
+      "removed_id": "import:emails:53193177df82:1785475557",
+      "retained_id": "INBOX:1:1785475515",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 110,
+      "removed_id": "import:emails:53193177df82:1785475558",
+      "retained_id": "INBOX:1:1785475516",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 112,
+      "removed_id": "import:emails:53193177df82:1785475560",
+      "retained_id": "INBOX:1:1785475517",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 113,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475561",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475514",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 114,
+      "removed_id": "import:emails:97212679dc43:1785475562",
+      "retained_id": "INBOX:1:1785475522",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 116,
+      "removed_id": "import:emails:53193177df82:1785475564",
+      "retained_id": "INBOX:1:1785475523",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 117,
+      "removed_id": "import:emails:97212679dc43:1785475565",
+      "retained_id": "INBOX:1:1785475524",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 118,
+      "removed_id": "import:emails:53193177df82:1785475566",
+      "retained_id": "INBOX:1:1785475526",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 119,
+      "removed_id": "import:emails:53193177df82:1785475567",
+      "retained_id": "INBOX:1:1785475525",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 120,
+      "removed_id": "import:emails:53193177df82:1785475568",
+      "retained_id": "INBOX:1:1785475527",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 121,
+      "removed_id": "import:emails:97212679dc43:1785475569",
+      "retained_id": "INBOX:1:1785475528",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 122,
+      "removed_id": "import:emails:7a60092fd277:1785475570",
+      "retained_id": "INBOX:1:1785475529",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 123,
+      "removed_id": "import:emails:53193177df82:1785475571",
+      "retained_id": "INBOX:1:1785475530",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 124,
+      "removed_id": "import:emails:97212679dc43:1785475572",
+      "retained_id": "INBOX:1:1785475531",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 127,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475576",
+      "retained_id": "INBOX:1:1785475521",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 129,
+      "removed_id": "import:emails:53193177df82:1785475578",
+      "retained_id": "INBOX:1:1785475536",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 132,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475581",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475527",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 133,
+      "removed_id": "import:emails:6f1a641e0598:1785475582",
+      "retained_id": "INBOX:1:1785475537",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 134,
+      "removed_id": "import:emails:5d2ff49da086:1785475583",
+      "retained_id": "INBOX:1:1785475538",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 135,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475584",
+      "retained_id": "import:emails:1b9c59cbec8a:1785475580",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 136,
+      "removed_id": "import:emails:e0adc2dc1bd0:1785475585",
+      "retained_id": "INBOX:1:1785475549",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 137,
+      "removed_id": "import:emails:e0adc2dc1bd0:1785475586",
+      "retained_id": "INBOX:1:1785475541",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 138,
+      "removed_id": "import:emails:53193177df82:1785475587",
+      "retained_id": "INBOX:1:1785475540",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 139,
+      "removed_id": "import:emails:97212679dc43:1785475588",
+      "retained_id": "INBOX:1:1785475542",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 140,
+      "removed_id": "import:emails:53193177df82:1785475589",
+      "retained_id": "INBOX:1:1785475543",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 141,
+      "removed_id": "import:emails:a8ee839ba484:1785475590",
+      "retained_id": "INBOX:1:1785475544",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 142,
+      "removed_id": "import:emails:1b9c59cbec8a:1785475591",
+      "retained_id": "INBOX:1:1785475521",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 145,
+      "removed_id": "import:emails:53193177df82:1785475594",
+      "retained_id": "INBOX:1:1785475545",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 146,
+      "removed_id": "import:emails:e0adc2dc1bd0:1785475595",
+      "retained_id": "INBOX:1:1785475549",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 147,
+      "removed_id": "import:emails:5d2ff49da086:1785475596",
+      "retained_id": "INBOX:1:1785475547",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 148,
+      "removed_id": "import:emails:97212679dc43:1785475597",
+      "retained_id": "INBOX:1:1785475548",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 149,
+      "removed_id": "import:emails:e0adc2dc1bd0:1785475598",
+      "retained_id": "INBOX:1:1785475549",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 150,
+      "removed_id": "import:emails:97212679dc43:1785475599",
+      "retained_id": "INBOX:1:1785475550",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 151,
+      "removed_id": "import:emails:53193177df82:1785475600",
+      "retained_id": "INBOX:1:1785475551",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 152,
+      "removed_id": "import:emails:77fc512deb59:1785475601",
+      "retained_id": "INBOX:1:1785475552",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 153,
+      "removed_id": "import:emails:53193177df82:1785475602",
+      "retained_id": "INBOX:1:1785475553",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 154,
+      "removed_id": "import:emails:53193177df82:1785475603",
+      "retained_id": "INBOX:1:1785475562",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 155,
+      "removed_id": "import:emails:53193177df82:1785475604",
+      "retained_id": "INBOX:1:1785475555",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 156,
+      "removed_id": "import:emails:a8ee839ba484:1785475605",
+      "retained_id": "INBOX:1:1785475556",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 157,
+      "removed_id": "import:emails:97212679dc43:1785475606",
+      "retained_id": "INBOX:1:1785475557",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 158,
+      "removed_id": "import:emails:a8ee839ba484:1785475607",
+      "retained_id": "INBOX:1:1785475558",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 159,
+      "removed_id": "import:emails:53193177df82:1785475608",
+      "retained_id": "INBOX:1:1785475560",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 160,
+      "removed_id": "import:emails:53193177df82:1785475609",
+      "retained_id": "INBOX:1:1785475559",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 161,
+      "removed_id": "import:emails:a8ee839ba484:1785475610",
+      "retained_id": "INBOX:1:1785475563",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 162,
+      "removed_id": "import:emails:53193177df82:1785475611",
+      "retained_id": "INBOX:1:1785475562",
+      "reason": "normalized_subject"
+    },
+    {
+      "source": "emails.csv",
+      "source_row": 163,
+      "removed_id": "import:emails:a8ee839ba484:1785475612",
+      "retained_id": "INBOX:1:1785475563",
+      "reason": "normalized_subject"
+    }
+  ],
+  "conflicts": [],
+  "dedup_policy": "Match nonempty Message-ID or NFKC/case/whitespace/linefold normalized subject with leading Re/Fw/Fwd stripped. UID alone is never used for matching. Reminder titles with different wording are retained.",
+  "notes": "All new labels are AI provisional annotations. Existing labels are preserved. Raw incoming HTML, bodies, links and attachments are not copied to the training CSV. Missing folder/Message-ID are left blank.",
+  "protected_files_unchanged": true,
+  "protected_sha256": {
+    "D:\\documents\\techathon2026\\training\\dataloader_demo.py": "9bb5838c8e1b549489ca813a81656c832571c137b71796479c1fd4ac8d2d4a55",
+    "D:\\documents\\techathon2026\\training\\dataset_demo.py": "8a9ef180ac2ec42246b4192cf6317a52ef900bd30b50f32224f5aab99754fef5",
+    "D:\\documents\\techathon2026\\training\\email_dataset.py": "bba60bd2fdc5bd82d2053dd1603407202e0cb877defe08601a1505acd604dab3",
+    "D:\\documents\\techathon2026\\training\\model_demo.py": "b5190334d628729a34fccea07032ac0702248d43ef4fbc99f464319d46057b7f",
+    "D:\\documents\\techathon2026\\training\\prepare_email_data.py": "c8eb3f3f1ed0a69c49e25c40921c10159b935bd7dabde3aafc3f9948f87814a7",
+    "D:\\documents\\techathon2026\\training\\tokenizer_demo.py": "77b592bab5080870577c99943c3d1024497d2bbb89da51643ec1b8230d7bba84",
+    "D:\\documents\\techathon2026\\training\\train.py": "1b61dd9175180ccded9838676f6c9fd2be4ee54ee1c8d28aa0ef2973f8851d2a",
+    "D:\\documents\\techathon2026\\training\\train_one_step.py": "3aad282305df3a2634f4c9e141f5de3401bcf5cbb177c3a97a6e1db8aa60ad0a",
+    "D:\\documents\\techathon2026\\data\\splits\\split_summary.json": "05f550707d69845bfc22d3f0ed18947a4318c6781adcdc7e8ccba41e53d5ed89",
+    "D:\\documents\\techathon2026\\data\\splits\\test.csv": "d77d4ef039eb0119d8f823b29e8484f7216264d8639e87bf2977a9ad6465046e",
+    "D:\\documents\\techathon2026\\data\\splits\\train.csv": "6f8054c94739e0355cb50e39243f0c709b587d3806145c60445383b7c3000d8d",
+    "D:\\documents\\techathon2026\\data\\splits\\val.csv": "f76699d4ea1dfeee3dd3ecabfafc22726330906f30d1e88523a5ab4c46bfadf8"
+  }
+}
