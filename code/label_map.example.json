@@ -1,0 +1,37 @@
+{
+  "_comment": "把队友模型的标签映射到本系统的 (议题, 立场)。这就是队友需要填的东西 —— 只有一份，很轻。",
+  "_how_to_use": [
+    "1. 队友把训练时用到的标签名（label）逐个填进来",
+    "2. 每个标签要说明它属于哪个议题（issue_id，必须是 16 个议题之一）、指向哪一方（supports，必须是该议题的 side_a 或 side_b）",
+    "3. 如果某个标签对应不上议题（比如是'兴趣类别'而不是'立场'），issue_id 和 supports 都留空字符串 —— 本系统会自动把它当作'判不出立场'丢掉，不会污染反库",
+    "4. 议题 id 与两侧名称的权威清单：python code/stance_extractor.py --taxonomy"
+  ],
+  "_warning": "⚠️ 情感标签（好评/差评）不能直接当立场用 —— '反对微服务'和'反对单体'都是负向情感，但立场完全相反。",
+
+  "labels": {
+    "微服务": {
+      "issue_id": "microservices_vs_monolith",
+      "supports": "微服务"
+    },
+    "单体": {
+      "issue_id": "microservices_vs_monolith",
+      "supports": "单体"
+    },
+    "react": {
+      "issue_id": "react_vs_vue",
+      "supports": "React"
+    },
+    "vue": {
+      "issue_id": "react_vs_vue",
+      "supports": "Vue"
+    },
+    "兴趣_架构": {
+      "issue_id": "",
+      "supports": ""
+    },
+    "兴趣_职场": {
+      "issue_id": "",
+      "supports": ""
+    }
+  }
+}
