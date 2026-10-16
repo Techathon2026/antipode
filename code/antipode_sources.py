@@ -1,0 +1,670 @@
+#!/usr/bin/env python3
+"""反引擎检索适配器 —— 从公开源里捞"与库条目相反"的内容候选。
+
+【这个模块只做一件事：检索】
+它不判断立场、不打分、不摘要。那些是 stance_extractor 与 engine 的事。
+职责分离的原因：检索可以离线测、可以换源、可以反复调参，不该和判断逻辑缠在一起。
+
+支持的源：
+    github  GitHub 搜索 API（/search/issues），能搜 issue / PR 的正文
+            · 有 token：30 次/分钟；无 token：10 次/分钟
+            · 优点：天生可以"回现场"跳转
+    hn      Hacker News（Algolia API）
+            · 无需任何鉴权，免费
+            · 优点：评论区观点密度极高，"我踩了这个坑"类反向证据多
+
+用法：
+    # 1) 离线自检：术语表是否与议题清单对齐（不联网）
+    python antipode_sources.py --selftest
+
+    # 2) 可行性探针：库条目支持「微服务」，去找支持「单体」的内容
+    python antipode_sources.py --probe microservices_vs_monolith --supports 微服务
+
+    # 3) 只看某个源、限制条数、存下原始结果
+    python antipode_sources.py --probe remote_vs_onsite --supports 坐班 --sources hn --limit 8 --out /tmp/probe.json
+
+设计约束：
+    · 零第三方依赖（只用标准库），保证在任何机器上都能直接跑
+    · 议题清单与对立面推导**复用 stance_extractor**，不另起一套
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import os
+import re
+import statistics
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass, asdict, field
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
+from stance_extractor import ISSUE_TAXONOMY, opposite_side  # noqa: E402
+from retrieval_terms import ISSUE_TERMS, TERMS_VERSION, NO_RETRIEVAL  # noqa: E402
+
+USER_AGENT = "antipode-hackathon/0.1"
+HTTP_TIMEOUT = 25
+
+# 所有已实现的源
+SOURCES = ("github", "hn")
+
+# 检索"对立观点"时的默认源。
+# ⚠️ 实测结论（2026-10-16）：**GitHub 不适合做观点检索源** —— 搜 monolith 捞回来的是
+# 33KB 的内核模块化草稿、webpack 构建优化、图片下载进度条，全是顺带提了一次该词的技术记录。
+# GitHub 的价值在**收集侧**（队友读用户 star 的仓库 / issue），不在反引擎这一侧。
+# 所以默认只用 HN；GitHub 适配器保留，用于"指定仓库内找事故复盘"这类定向查询。
+RETRIEVAL_SOURCES = ("hn",)
+
+
+# ---------------------------------------------------------------------------
+# 1. 统一候选结构 —— 所有源都吐这个，后面的判断逻辑不需要知道数据从哪来
+# ---------------------------------------------------------------------------
+@dataclass
+class Candidate:
+    source: str
+    candidate_id: str
+    url: str
+    title: str
+    text: str
+    query: str = ""
+    created_at: str = ""
+    popularity: int = 0
+    extra: dict = field(default_factory=dict)
+
+    def digest(self) -> dict:
+        d = asdict(self)
+        d["text_len"] = len(self.text)
+        return d
+
+
+class RateLimited(RuntimeError):
+    pass
+
+
+# ---------------------------------------------------------------------------
+# 2. HTTP 小工具（stdlib）
+# ---------------------------------------------------------------------------
+def _http_json(url: str, headers: dict | None = None) -> dict:
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **(headers or {})})
+    try:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            return json.loads(raw)
+    except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="replace")[:300]
+        except Exception:
+            pass
+        if e.code in (403, 429):
+            raise RateLimited(f"HTTP {e.code}（疑似触发限流）：{body}") from e
+        raise RuntimeError(f"HTTP {e.code}：{body}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"网络不可达：{e.reason}") from e
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"返回不是合法 JSON：{e}") from e
+
+
+def strip_html(s: str) -> str:
+    """HN 的 comment_text 是 HTML 片段，剥成纯文本"""
+    if not s:
+        return ""
+    s = re.sub(r"<br\s*/?>", "\n", s, flags=re.I)
+    s = re.sub(r"</p>", "\n\n", s, flags=re.I)
+    s = re.sub(r"<[^>]+>", "", s)
+    s = html.unescape(s)
+    s = re.sub(r"[ \t\u00a0]+", " ", s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    return s.strip()
+
+
+def _load_env_value(name: str) -> str:
+    """先看环境变量，再兜底读 code/.env（与 stance_extractor 的密钥约定一致）"""
+    if os.environ.get(name):
+        return os.environ[name].strip()
+    env_path = os.path.join(_HERE, ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    if k.strip() == name:
+                        return v.strip().strip('"').strip("'")
+        except OSError:
+            pass
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# 3. 源适配器
+# ---------------------------------------------------------------------------
+def search_github(query: str, limit: int, token: str = "", scope: str = "body") -> list[Candidate]:
+    """GitHub issue / PR 搜索。
+
+    scope 决定匹配范围：
+        body   加 in:body —— 匹配正文
+        title  加 in:title —— 只匹配标题
+        raw    原样发出去，不追加任何限定符（调参时用）
+
+    ⚠️ 曾经的坑：无条件追加 in:body，导致调用方传 "xxx in:title" 时变成
+    "xxx in:title in:body"，限定符互相干扰、结果完全不对。所以 scope=raw 是必需的。
+    """
+    if scope == "raw" or " in:" in query:
+        q = query
+    else:
+        q = f"{query} in:{scope}"
+
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    url_sorted = (
+        "https://api.github.com/search/issues?"
+        + urllib.parse.urlencode({"q": q, "per_page": limit, "sort": "reactions", "order": "desc"})
+    )
+    try:
+        data = _http_json(url_sorted, headers)
+    except RuntimeError:
+        url_plain = (
+            "https://api.github.com/search/issues?"
+            + urllib.parse.urlencode({"q": q, "per_page": limit})
+        )
+        data = _http_json(url_plain, headers)
+
+    out: list[Candidate] = []
+    for it in data.get("items", []):
+        url = it.get("html_url") or ""
+        if not url:
+            continue
+        repo = ""
+        m = re.match(r"https://github\.com/([^/]+/[^/]+)/", url)
+        if m:
+            repo = m.group(1)
+        num = it.get("number")
+        body = it.get("body") or ""
+        out.append(
+            Candidate(
+                source="github",
+                candidate_id=f"{repo}#{num}" if repo else str(it.get("id")),
+                url=url,
+                title=it.get("title") or "",
+                text=f"{it.get('title') or ''}\n\n{body}".strip(),
+                query=query,
+                created_at=it.get("created_at") or "",
+                popularity=int((it.get("reactions") or {}).get("total_count") or 0),
+                extra={"comments": it.get("comments"), "state": it.get("state")},
+            )
+        )
+    return out
+
+
+def search_hn(query: str, limit: int, tags: str = "comment") -> list[Candidate]:
+    """Hacker News 搜索（Algolia API）。
+
+    tags 的选择很关键，两者用途不同：
+      comment  评论区 —— "我踩了这个坑"类的第一手经验，反向证据的主要来源
+      story    文章标题 —— 标题本身就是观点（"We moved back to a monolith"），
+               适合用来找**论点载体**，再顺着 URL 回现场读原文
+
+    注意：Algolia 默认是**宽松匹配**，多词查询会被拆开并倾向于返回高热度内容
+    （招聘帖、热榜汇总会污染结果）。关键短语请加引号做精确匹配。
+    """
+    url = "https://hn.algolia.com/api/v1/search?" + urllib.parse.urlencode(
+        {"query": query, "tags": tags, "hitsPerPage": limit}
+    )
+    data = _http_json(url)
+
+    out: list[Candidate] = []
+    for it in data.get("hits", []):
+        if tags == "comment":
+            text = strip_html(it.get("comment_text") or "")
+            title = it.get("story_title") or ""
+        else:
+            text = strip_html(it.get("story_text") or "") or (it.get("title") or "")
+            title = it.get("title") or ""
+        if not text:
+            continue
+        oid = it.get("objectID")
+        out.append(
+            Candidate(
+                source="hn",
+                candidate_id=f"hn-{oid}",
+                url=it.get("url") or f"https://news.ycombinator.com/item?id={oid}",
+                title=title,
+                text=(f"{title}\n\n{text}" if tags != "comment" else text).strip(),
+                query=query,
+                created_at=it.get("created_at") or "",
+                popularity=int(it.get("points") or 0),
+                extra={"author": it.get("author"), "hn_item": f"https://news.ycombinator.com/item?id={oid}", "tags": tags},
+            )
+        )
+    return out
+
+
+ADAPTERS = {"github": search_github, "hn": search_hn}
+
+
+def _delay_for(source: str, has_github_token: bool) -> float:
+    if source == "hn":
+        return 0.4
+    return 2.2 if has_github_token else 6.5  # 30/min vs 10/min 的礼貌间隔
+
+
+def collect(
+    issue_id: str,
+    want_side: str,
+    limit: int = 5,
+    sources: tuple[str, ...] = RETRIEVAL_SOURCES,
+    tier: str = "both",
+    hn_tags: str = "story",
+    sleep: bool = True,
+) -> list[Candidate]:
+    """给定议题和"想要的一方"，用该方的检索词去各源检索，返回去重后的候选。
+
+    tier 决定召回策略：
+        side   只用该方自己的词（精确召回，命中率高但条数少）
+        topic  只用议题关键词（宽召回，两方内容都会进来，靠模型筛）
+        both   两者都用（默认推荐：先精确、再补宽召回）
+    """
+    entry = ISSUE_TERMS.get(issue_id)
+    if entry is None:
+        raise KeyError(f"术语表里没有议题 {issue_id}")
+    if entry.get("retrieval") == "none":
+        raise ValueError(f"{issue_id} 被标记为不做检索（人工预置演示）")
+
+    terms = list(entry["sides"].get(want_side) or [])
+    if tier in ("topic", "both"):
+        extra = [t for t in entry["topics"] if t not in terms]
+        terms = extra if tier == "topic" else terms + extra
+    if not terms:
+        raise KeyError(f"术语表里没有 {issue_id} / {want_side} 的检索词")
+
+    token = _load_env_value("GITHUB_TOKEN")
+    seen: set[str] = set()
+    results: list[Candidate] = []
+    for term in terms:
+        for source in sources:
+            fn = ADAPTERS[source]
+            try:
+                if source == "github":
+                    batch = fn(term, limit, token, "body")
+                else:
+                    batch = fn(term, limit, hn_tags)
+            except RateLimited as e:
+                print(f"    [!] {source} 限流，跳过「{term}」：{e}", file=sys.stderr)
+                time.sleep(5)
+                continue
+            except Exception as e:  # 单个 query 失败不该拖垮整轮
+                print(f"    [!] {source} 检索「{term}」失败：{e}", file=sys.stderr)
+                continue
+            for c in batch:
+                if c.url in seen:
+                    continue
+                seen.add(c.url)
+                results.append(c)
+            if sleep:
+                time.sleep(_delay_for(source, bool(token)))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 4. 可行性评估 —— 把"能不能用"变成可量化的数字
+# ---------------------------------------------------------------------------
+# 注意：这里是**探针**的粗指标，不是最终判据。真正的判断交给 stance_extractor。
+# 为什么需要粗指标：如果不先量化，就会像第一轮那样被"22 条可用"骗过去 ——
+# 实际上捞回来的是 33KB 的内核草稿。粗指标的作用是**尽早暴露"看起来很行其实不行"**。
+
+# 有论证痕迹（主要针对正文/评论）
+ARGUMENT_HINTS = re.compile(
+    r"(because|so that|which means|the reason|we found|turned out|in my experience"
+    r"|however|although|instead of|worse than|better than"
+    r"|因为|所以|其实|我认为|我觉得|结果|反而|不如|代价|教训|踩坑|复盘|翻倍)",
+    re.I,
+)
+
+# 标题里带立场信号（主要针对 HN 文章标题 —— 标题本身就是观点）
+STANCE_HINTS = re.compile(
+    r"(why |goodbye|death|dead|future|first|mistake|stop |don't|never|overrated"
+    r"|back to|vs\.? |versus|better|worse|overkill|still |fallacy|harmful|not "
+    r"|instead|considered|enough|rethink|problem|trap"
+    r"|为什么|其实|不如|反对|别再|才怪|翻车|才是|真香|踩坑)",
+    re.I,
+)
+
+
+def min_len_for(c: Candidate) -> int:
+    """HN 文章模式只有标题（几十字），正文模式才该要求 160 字以上。
+    不区分源类型会让好结果被判 0 分 —— 第一轮就踩过这个坑。"""
+    return 25 if (c.extra or {}).get("tags") == "story" else 160
+
+
+def looks_argumentative(text: str) -> bool:
+    return bool(ARGUMENT_HINTS.search(text or ""))
+
+
+def has_stance_signal(c: Candidate) -> bool:
+    return bool(STANCE_HINTS.search(c.title or "") or STANCE_HINTS.search(c.text or ""))
+
+
+def keyword_hit(text: str, keywords: list[str]) -> bool:
+    low = (text or "").lower()
+    return any(k.lower() in low for k in keywords)
+
+
+def evaluate(cands: list[Candidate], issue: dict, anchors: list[str] | None = None) -> dict:
+    """anchors = 判断"沾不沾议题"用的锚点词。默认用议题关键词，
+    但议题关键词里有中文（远程办公/坐班），而 HN 是英文源，必须把检索词也算进锚点，
+    否则英文候选会被全部误判为"不沾题"。"""
+    anchors = anchors or issue["keywords"]
+    lengths = [len(c.text) for c in cands] or [0]
+
+    rows = []
+    for c in cands:
+        ok_len = len(c.text) >= min_len_for(c)
+        topical = keyword_hit(c.text, anchors)
+        stance = has_stance_signal(c)
+        rows.append({"c": c, "ok_len": ok_len, "topical": topical, "stance": stance})
+
+    substantial = [r for r in rows if r["ok_len"]]
+    arg_hits = [r for r in substantial if looks_argumentative(r["c"].text)]
+    topical = [r for r in substantial if r["topical"]]
+    on_topic_stance = [r for r in topical if r["stance"]]
+
+    per_source: dict[str, int] = {}
+    for c in cands:
+        per_source[c.source] = per_source.get(c.source, 0) + 1
+
+    return {
+        "unique_candidates": len(cands),
+        "per_source": per_source,
+        "substantial": len(substantial),
+        "argumentative": len(arg_hits),
+        "topical": len(topical),
+        "topical_with_stance": len(on_topic_stance),
+        "median_len": int(statistics.median(lengths)),
+        "usable": sorted({r["c"].url for r in on_topic_stance}),
+        "usable_list": [r["c"] for r in on_topic_stance],
+    }
+
+
+def verdict(ev: dict) -> tuple[bool, str]:
+    usable = len(ev["usable"])
+    if usable >= 12:
+        return True, f"可行：{usable} 条「沾议题 + 标题带立场」的候选，够支撑演示"
+    if usable >= 5:
+        return True, f"可用：{usable} 条候选，够跑通链路，但最好再补检索词或补源"
+    if usable >= 1:
+        return False, f"偏弱：只有 {usable} 条候选，需要调整检索词"
+    return False, "不可行：0 条候选，必须换检索策略"
+
+
+# ---------------------------------------------------------------------------
+# 5. 离线自检
+# ---------------------------------------------------------------------------
+def selftest() -> int:
+    problems: list[str] = []
+    ids = [i["issue_id"] for i in ISSUE_TAXONOMY]
+
+    for issue in ISSUE_TAXONOMY:
+        sid = issue["issue_id"]
+        entry = ISSUE_TERMS.get(sid)
+        if entry is None:
+            problems.append(f"术语表缺少议题 {sid}")
+            continue
+
+        if entry.get("retrieval") not in ("auto", "none"):
+            problems.append(f"{sid} 的 retrieval 字段非法：{entry.get('retrieval')!r}")
+
+        if not entry.get("topics"):
+            problems.append(f"{sid} 缺少 topics（宽召回词）")
+
+        sides = entry.get("sides") or {}
+        for side_key in ("side_a", "side_b"):
+            side = issue[side_key]
+            terms = sides.get(side)
+            if not terms:
+                problems.append(f"{sid} 缺少 {side_key}「{side}」的检索词")
+                continue
+            for t in terms:
+                if len(t.split()) > 3:
+                    problems.append(f"{sid}「{side}」检索词过长（召回会归零）：{t}")
+                if t.strip() != t or not t:
+                    problems.append(f"{sid}「{side}」检索词有首尾空格或为空：{t!r}")
+
+        extra_sides = set(sides) - {issue["side_a"], issue["side_b"]}
+        if extra_sides:
+            problems.append(f"{sid} 的 sides 里有不属于本议题的立场：{extra_sides}")
+
+    for sid in ISSUE_TERMS:
+        if sid not in ids:
+            problems.append(f"术语表里有自创议题：{sid}")
+
+    for sid in NO_RETRIEVAL:
+        if (ISSUE_TERMS.get(sid) or {}).get("retrieval") != "none":
+            problems.append(f"{sid} 在 NO_RETRIEVAL 里但 retrieval 不是 none")
+
+    n_auto = sum(1 for e in ISSUE_TERMS.values() if e.get("retrieval") == "auto")
+    n_terms = sum(
+        len(v) for e in ISSUE_TERMS.values() for k, v in (e.get("sides") or {}).items()
+    )
+    print("=" * 68)
+    print(f"术语表自检  TERMS_VERSION={TERMS_VERSION}")
+    print("=" * 68)
+    print(f"议题数               {len(ISSUE_TAXONOMY)}")
+    print(f"术语表覆盖           {len(ISSUE_TERMS)}")
+    print(f"  可自动检索         {n_auto}")
+    print(f"  人工预置（不检索） {len(NO_RETRIEVAL)}  {', '.join(NO_RETRIEVAL)}")
+    print(f"检索词总数           {n_terms}")
+    print("-" * 68)
+
+    if problems:
+        print(f"发现 {len(problems)} 个问题：")
+        for p in problems:
+            print(f"  · {p}")
+        return 1
+    print("全部通过：两方检索词齐备、无自创议题、无长短语 ✅")
+
+    ms = next(i for i in ISSUE_TAXONOMY if i["issue_id"] == "microservices_vs_monolith")
+    assert opposite_side(ms, "a") == "单体", "对立面推导错误"
+    assert opposite_side(ms, "b") == "微服务", "对立面推导错误"
+    assert opposite_side(ms, "neutral") is None, "中立不该有对立面"
+    print("对立面推导冒烟测试通过 ✅")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# 6. CLI
+# ---------------------------------------------------------------------------
+def cmd_probe(args: argparse.Namespace) -> int:
+    issue = next((i for i in ISSUE_TAXONOMY if i["issue_id"] == args.probe), None)
+    if issue is None:
+        print(f"未知议题：{args.probe}", file=sys.stderr)
+        print("可用议题：", ", ".join(i["issue_id"] for i in ISSUE_TAXONOMY), file=sys.stderr)
+        return 2
+
+    side_keys = {"a": "side_a", "b": "side_b"}
+    if args.supports in (issue["side_a"], issue["side_b"]):
+        side = "a" if args.supports == issue["side_a"] else "b"
+    elif args.supports in side_keys:
+        side = args.supports
+    else:
+        print(
+            f"未知立场「{args.supports}」，本议题只有：{issue['side_a']} / {issue['side_b']}",
+            file=sys.stderr,
+        )
+        return 2
+
+    want = opposite_side(issue, side)
+    if want is None:
+        print("该立场没有对立面（neutral / undetermined）", file=sys.stderr)
+        return 2
+
+    print("=" * 68)
+    print(f"检索可行性探针   {issue['label']}  ({issue['issue_id']})")
+    print("=" * 68)
+    print(f"假设库条目支持     {args.supports}")
+    print(f"要去找的对立面     {want}")
+    print(f"该方的检索词       {' / '.join(ISSUE_TERMS[issue['issue_id']]['sides'][want])}")
+    print(f"召回档位           {args.tier}")
+    print(f"检索源             {', '.join(args.sources)}   每词每源取 {args.limit} 条")
+    print("-" * 68)
+
+    try:
+        cands = collect(
+            issue["issue_id"],
+            want,
+            limit=args.limit,
+            sources=tuple(args.sources),
+            tier=args.tier,
+            hn_tags=args.hn_tags,
+        )
+    except (KeyError, ValueError) as e:
+        print(f"❌ {e}", file=sys.stderr)
+        return 2
+
+    entry = ISSUE_TERMS[issue["issue_id"]]
+    anchors = list(issue["keywords"]) + list(entry["topics"])
+    for t in entry["sides"].values():
+        anchors += list(t)
+    anchors = list(dict.fromkeys(a.lower() for a in anchors))
+    ev = evaluate(cands, issue, anchors)
+
+    for c in cands[: args.samples * 5]:
+        top = "题" if keyword_hit(c.text, anchors) else "  "
+        st = "立" if has_stance_signal(c) else "  "
+        print(f"[{c.source:6} | {top}{st}] {c.title[:60]}")
+        print(f"           {c.url}")
+        print(f"           {re.sub(chr(10) + '+', ' ', c.text)[:170]}")
+        print()
+
+    print("=" * 68)
+    print("评估")
+    print("=" * 68)
+    print(f"候选总数（去重后）   {ev['unique_candidates']}")
+    print(f"  按来源             {ev['per_source']}")
+    print(f"文本长度达标         {ev['substantial']}")
+    print(f"  含论证痕迹         {ev['argumentative']}")
+    print(f"  沾议题关键词       {ev['topical']}")
+    print(f"  沾题 + 带立场信号   {ev['topical_with_stance']}")
+    print(f"文本长度中位数       {ev['median_len']}")
+    print(f"★ 值得送进模型验证   {len(ev['usable'])}")
+    ok, msg = verdict(ev)
+    print("-" * 68)
+    print(("✅ " if ok else "❌ ") + msg)
+
+    if args.out:
+        payload_ev = {k: v for k, v in ev.items() if k != "usable_list"}
+        payload_ev["usable_candidates"] = [c.digest() for c in ev["usable_list"]]
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "issue_id": issue["issue_id"],
+                    "supports": args.supports,
+                    "want": want,
+                    "terms_version": TERMS_VERSION,
+                    "tier": args.tier,
+                    "sources": list(args.sources),
+                    "evaluation": payload_ev,
+                    "candidates": [c.digest() for c in cands],
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+        print(f"原始结果已写入 {args.out}")
+    return 0
+
+
+def cmd_raw(args: argparse.Namespace) -> int:
+    """不套任何术语表，直接把一个原始 query 丢给某个源，用来看检索精度。
+    调术语表 / 试算符的时候用它，比改代码再跑快得多。"""
+    token = _load_env_value("GITHUB_TOKEN")
+    for source in args.sources:
+        print("=" * 72)
+        print(f"[{source}] {args.raw_query}")
+        print("=" * 72)
+        fn = ADAPTERS[source]
+        try:
+            if source == "github":
+                batch = fn(args.raw_query, args.limit, token, "raw")
+            else:
+                batch = fn(args.raw_query, args.limit, args.hn_tags)
+        except Exception as e:
+            print(f"  检索失败：{e}\n")
+            continue
+        if not batch:
+            print("  0 条结果\n")
+            continue
+        for c in batch:
+            t = re.sub(r"\s+", " ", c.text)
+            print(f"- {(c.title[:64] or '(无标题)')}   len={len(c.text)}")
+            print(f"  {c.url}")
+            print(f"  {t[:200]}")
+        print()
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="反引擎检索适配器 / 可行性探针")
+    ap.add_argument("--selftest", action="store_true", help="离线自检术语表，不联网")
+    ap.add_argument("--probe", metavar="ISSUE_ID", help="议题 id")
+    ap.add_argument("--supports", help="库条目支持的立场（会去找它的对立面）")
+    ap.add_argument("--sources", default=",".join(RETRIEVAL_SOURCES), help="github,hn（默认仅 hn，原因见文件头注释）")
+    ap.add_argument("--tier", default="both", choices=("side", "topic", "both"), help="召回档位：sides 精确 / topics 宽 / both")
+    ap.add_argument("--limit", type=int, default=5, help="每词每源取多少条")
+    ap.add_argument("--samples", type=int, default=2, help="打印多少组样本")
+    ap.add_argument("--list-issues", action="store_true", help="列出全部议题与术语")
+    ap.add_argument("--raw-query", help="调参用：直接跑一个原始 query，不查术语表")
+    ap.add_argument("--hn-tags", default="story", choices=("comment", "story"), help="HN 检索文章标题还是评论区（默认 story，实测评论区分不清对立面）")
+    ap.add_argument("--out", help="把原始候选写成 JSON")
+    args = ap.parse_args()
+
+    if args.selftest:
+        return selftest()
+
+    args.sources = [s.strip() for s in args.sources.split(",") if s.strip()]
+    bad = [s for s in args.sources if s not in ADAPTERS]
+    if bad:
+        print(f"未知来源：{bad}", file=sys.stderr)
+        return 2
+
+    if args.raw_query:
+        return cmd_raw(args)
+
+    if args.list_issues:
+        for i in ISSUE_TAXONOMY:
+            entry = ISSUE_TERMS.get(i["issue_id"], {})
+            flag = "自动检索" if entry.get("retrieval") == "auto" else "人工预置"
+            print(f"{i['issue_id']:32} {i['side_a']:8} ↔ {i['side_b']:8}  [{flag}]")
+            for s in (i["side_a"], i["side_b"]):
+                print(f"    {s:10} → {' / '.join((entry.get('sides') or {}).get(s, [])) or '（缺）'}")
+        return 0
+
+    if args.probe:
+        if not args.supports:
+            print("--probe 需要同时给 --supports", file=sys.stderr)
+            return 2
+        return cmd_probe(args)
+
+    ap.print_help()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
