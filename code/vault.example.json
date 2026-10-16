@@ -1,0 +1,7 @@
+{
+  "vault_id": "tech-ethics",
+  "topic": "科技伦理",
+  "antipode_enabled": true,
+  "counter_types": ["opposing_view"],
+  "item_count": 24
+}
