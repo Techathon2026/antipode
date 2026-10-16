@@ -291,6 +291,32 @@ BACKENDS = {
 }
 
 
+class MockBackend(OpenAICompatBackend):
+    """离线假模型（规则桩）。
+
+    用途：没有 API key、或者现场断网时，**仍能把整条流水线跑通**，
+    供演示兜底与自检使用。它只是规则桩，**准确率没有参考价值**，不要用它跑评测。
+    """
+
+    name = "mock"
+
+    def judge(self, texts: list[str], issue_id: str = "") -> list[Judgment]:
+        import stance_extractor as se
+
+        old = se._USE_MOCK
+        se._USE_MOCK = True
+        try:
+            res = super().judge(texts, issue_id)
+        finally:
+            se._USE_MOCK = old
+        for r in res:
+            r.backend = self.name
+        return res
+
+
+BACKENDS["mock"] = MockBackend
+
+
 # ---------------------------------------------------------------------------
 # 5. 标签映射 + 自检
 # ---------------------------------------------------------------------------
