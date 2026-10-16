@@ -6,22 +6,31 @@
 职责分离的原因：检索可以离线测、可以换源、可以反复调参，不该和判断逻辑缠在一起。
 
 支持的源：
-    github  GitHub 搜索 API（/search/issues），能搜 issue / PR 的正文
+    v2ex    中文 · V2EX 讨论帖（经 sov2ex 第三方搜索接口，官方 API 没有搜索）
+            · 中文第一手经验与吐槽密度最高，"我们公司上了微服务结果……"这类内容极多
+            · 帖子自带回复数，是免费的质量信号
+    juejin  中文 · 掘金文章搜索（官方 search_api）
+            · 偏教程与知识总结，观点密度低于 V2EX，作为补充源
+            · ⚠️ 两个坑：① 忽略 limit 参数，必须自己截断；② 常用词如「单体架构」可能返回 0 条
+    hn      英文 · Hacker News（Algolia API）
+            · 无需鉴权，文章标题即观点，可用 URL 直通原文博客
+    github  GitHub 搜索 API
+            · ⚠️ 实测不适合找观点（见 docs/反仓库检索_实测记录.md），保留作定向查询用
             · 有 token：30 次/分钟；无 token：10 次/分钟
-            · 优点：天生可以"回现场"跳转
-    hn      Hacker News（Algolia API）
-            · 无需任何鉴权，免费
-            · 优点：评论区观点密度极高，"我踩了这个坑"类反向证据多
 
 用法：
-    # 1) 离线自检：术语表是否与议题清单对齐（不联网）
+    # 1) 离线自检：检索词表是否与议题清单对齐（不联网）
     python antipode_sources.py --selftest
 
     # 2) 可行性探针：库条目支持「微服务」，去找支持「单体」的内容
     python antipode_sources.py --probe microservices_vs_monolith --supports 微服务
 
-    # 3) 只看某个源、限制条数、存下原始结果
-    python antipode_sources.py --probe remote_vs_onsite --supports 坐班 --sources hn --limit 8 --out /tmp/probe.json
+    # 3) 只看中文源 / 只看英文源
+    python antipode_sources.py --probe rust_vs_cpp --supports Rust --sources v2ex,juejin
+    python antipode_sources.py --probe rust_vs_cpp --supports Rust --sources hn
+
+    # 4) 调参：直接跑一个原始 query，不查词表
+    python antipode_sources.py --raw-query 过度设计 --sources v2ex
 
 设计约束：
     · 零第三方依赖（只用标准库），保证在任何机器上都能直接跑
@@ -59,14 +68,18 @@ USER_AGENT = "antipode-hackathon/0.1"
 HTTP_TIMEOUT = 25
 
 # 所有已实现的源
-SOURCES = ("github", "hn")
+SOURCES = ("v2ex", "juejin", "hn", "github")
 
-# 检索"对立观点"时的默认源。
+# 中文源 / 英文源分组。仓库里的内容是中文为主，所以反信息也**优先取中文源**，
+# 否则中文库旁边配一堆英文文章，演示时观感是割裂的。
+CN_SOURCES = ("v2ex", "juejin")
+EN_SOURCES = ("hn",)
+
+# 检索"对立观点"时的默认源：中文优先，英文补一条。
 # ⚠️ 实测结论（2026-10-16）：**GitHub 不适合做观点检索源** —— 搜 monolith 捞回来的是
 # 33KB 的内核模块化草稿、webpack 构建优化、图片下载进度条，全是顺带提了一次该词的技术记录。
 # GitHub 的价值在**收集侧**（队友读用户 star 的仓库 / issue），不在反引擎这一侧。
-# 所以默认只用 HN；GitHub 适配器保留，用于"指定仓库内找事故复盘"这类定向查询。
-RETRIEVAL_SOURCES = ("hn",)
+RETRIEVAL_SOURCES = CN_SOURCES + ("hn",)
 
 
 # ---------------------------------------------------------------------------
@@ -257,12 +270,143 @@ def search_hn(query: str, limit: int, tags: str = "comment") -> list[Candidate]:
     return out
 
 
-ADAPTERS = {"github": search_github, "hn": search_hn}
+def search_v2ex(query: str, limit: int, sort: str = "") -> list[Candidate]:
+    """中文源主力：V2EX 讨论帖（经 sov2ex 搜索接口）。
+
+    为什么用它：V2EX 是中文开发者**表达观点和吐槽**的地方，
+    "我们公司上了微服务结果……"这种第一手经验密度极高，
+    而帖子自带回复数 —— 相当于 HN 的 points，是免费的质量信号。
+
+    ⚠️ 查询必须是**短词**（最好 1 个词）。实测搜「微服务 后悔」会退化成松散 OR，
+    捞回"后悔做产品经理""结婚之后是男方后悔多"这类完全无关的帖子。
+
+    ⚠️ sov2ex 是第三方服务，不是 V2EX 官方（官方 API 没有搜索接口）。
+    答辩时若被问到，要如实说明。
+    """
+    params = {"q": query, "size": limit}
+    if sort:
+        params["sort"] = sort
+    url = "https://www.sov2ex.com/api/search?" + urllib.parse.urlencode(params)
+    data = _http_json(url)
+
+    out: list[Candidate] = []
+    for h in data.get("hits") or []:
+        src = h.get("_source") or {}
+        hl = h.get("highlight") or {}
+        # 命中的片段优先（它含关键词上下文），否则退回全文
+        snippet = " ".join(hl.get("content") or []) or (src.get("content") or "")
+        snippet = html.unescape(re.sub(r"</?em>", "", snippet))
+        title = (src.get("title") or "").strip()
+        tid = h.get("_id")
+        out.append(
+            Candidate(
+                source="v2ex",
+                candidate_id=f"v2ex-{tid}",
+                url=f"https://www.v2ex.com/t/{tid}",
+                title=title,
+                text=f"{title}\n\n{re.sub(r'[ \t]+', ' ', snippet).strip()}".strip(),
+                query=query,
+                created_at=(src.get("created") or "")[:19],
+                popularity=int(src.get("replies") or 0),
+                extra={"replies": src.get("replies"), "node": src.get("node")},
+            )
+        )
+    return out
+
+
+def search_juejin(query: str, limit: int) -> list[Candidate]:
+    """中文补充源：掘金文章搜索（官方 search_api）。
+
+    定位说明：掘金偏教程与知识总结（"微服务设计原则""六种常用设计模式"），
+    **观点密度明显低于 V2EX**。它的价值在于偶尔能捞到复盘型文章，
+    例如"微服务架构过度设计的思考与实践"。所以排在 V2EX 之后作为补充。
+
+    ⚠️ 两个已实测的坑：
+      1. 接口**忽略 limit 参数**（要 5 条会返回 20 条）→ 必须自己截断
+      2. 部分常用词返回 0 条（如「单体架构」），召回不如 V2EX 稳定
+    """
+    url = "https://api.juejin.cn/search_api/v1/search?aid=2608&uuid=0&spider=0"
+    payload = json.dumps(
+        {
+            "key_word": query,
+            "id_type": 2,
+            "cursor": "0",
+            "limit": str(limit),
+            "search_type": 0,
+            "sort_type": 0,
+        }
+    ).encode()
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/json",
+            "Origin": "https://juejin.cn",
+            "Referer": "https://juejin.cn/",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"HTTP {e.code}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"网络不可达：{e.reason}") from e
+
+    out: list[Candidate] = []
+    for it in (data.get("data") or [])[:limit]:  # ← 必须截断，接口不认 limit
+        model = it.get("result_model") or {}
+        ai = model.get("article_info") or {}
+        if not ai:
+            continue
+        aid = ai.get("article_id")
+        title = (ai.get("title") or "").strip()
+        brief = re.sub(r"\s+", " ", (ai.get("brief_content") or "")).strip()
+        out.append(
+            Candidate(
+                source="juejin",
+                candidate_id=f"juejin-{aid}",
+                url=f"https://juejin.cn/post/{aid}",
+                title=title,
+                text=f"{title}\n\n{brief}".strip(),
+                query=query,
+                created_at="",
+                popularity=int(ai.get("view_count") or 0),
+                extra={
+                    "user": (model.get("author_user_info") or {}).get("user_name"),
+                    "digg": ai.get("digg_count"),
+                },
+            )
+        )
+    return out
+
+
+ADAPTERS = {
+    "github": search_github,
+    "hn": search_hn,
+    "v2ex": search_v2ex,
+    "juejin": search_juejin,
+}
+
+# 招聘 / 广告类噪声。V2EX 上这类帖子占比很高，一条正则就能剔掉一大批。
+# 实测：搜「坐班」时捞回的大多是"招聘：需驻场坐班开发""求活，可短时坐班可外包"，
+# 跟观点毫无关系。放在结果侧过滤，比在查询里想办法更省事。
+NOISE_PATTERNS = re.compile(
+    r"(招聘|招人|内推|求职|求活|投简历|简历|岗位|外包|兼职|时薪|驻场|海投)",
+)
+
+
+def is_noise(c: Candidate) -> bool:
+    """标题里自报"我是招聘/广告"的，直接丢掉。"""
+    return bool(NOISE_PATTERNS.search(c.title or ""))
 
 
 def _delay_for(source: str, has_github_token: bool) -> float:
-    if source == "hn":
-        return 0.4
+    if source in ("hn", "v2ex"):
+        return 0.5
+    if source == "juejin":
+        return 1.2
     return 2.2 if has_github_token else 6.5  # 30/min vs 10/min 的礼貌间隔
 
 
@@ -298,14 +442,17 @@ def collect(
     token = _load_env_value("GITHUB_TOKEN")
     seen: set[str] = set()
     results: list[Candidate] = []
+    dropped_noise = 0
     for term in terms:
         for source in sources:
             fn = ADAPTERS[source]
             try:
                 if source == "github":
                     batch = fn(term, limit, token, "body")
-                else:
+                elif source == "hn":
                     batch = fn(term, limit, hn_tags)
+                else:
+                    batch = fn(term, limit)
             except RateLimited as e:
                 print(f"    [!] {source} 限流，跳过「{term}」：{e}", file=sys.stderr)
                 time.sleep(5)
@@ -317,9 +464,14 @@ def collect(
                 if c.url in seen:
                     continue
                 seen.add(c.url)
+                if is_noise(c):
+                    dropped_noise += 1
+                    continue
                 results.append(c)
             if sleep:
                 time.sleep(_delay_for(source, bool(token)))
+    if dropped_noise:
+        print(f"    [过滤] 剔除 {dropped_noise} 条招聘/广告类噪声", file=sys.stderr)
     return results
 
 
@@ -349,9 +501,17 @@ STANCE_HINTS = re.compile(
 
 
 def min_len_for(c: Candidate) -> int:
-    """HN 文章模式只有标题（几十字），正文模式才该要求 160 字以上。
-    不区分源类型会让好结果被判 0 分 —— 第一轮就踩过这个坑。"""
-    return 25 if (c.extra or {}).get("tags") == "story" else 160
+    """不同源给出的文本长度天然不同，阈值必须跟着源走：
+        · HN 文章模式只有标题（几十字）
+        · V2EX / 掘金给的是"标题 + 命中片段"（约 100 字）
+        · HN 评论、GitHub issue 才是长正文
+
+    不区分就会像之前那样：好结果被判 0 分（第一轮 HN 评论、第二轮 V2EX 都踩过这个坑）。"""
+    if c.source in ("v2ex", "juejin"):
+        return 40
+    if (c.extra or {}).get("tags") == "story":
+        return 25
+    return 160
 
 
 def looks_argumentative(text: str) -> bool:
@@ -442,8 +602,10 @@ def selftest() -> int:
                 problems.append(f"{sid} 缺少 {side_key}「{side}」的检索词")
                 continue
             for t in terms:
-                if len(t.split()) > 3:
-                    problems.append(f"{sid}「{side}」检索词过长（召回会归零）：{t}")
+                # 实测：多词查询在 V2EX 与 HN 上都会退化（空格被当松散 OR，捞回无关内容）。
+                # 所以检索词一律压到 1–2 个词，长一点的必须拆成两个词条。
+                if len(t.split()) > 2:
+                    problems.append(f"{sid}「{side}」检索词过长（多词会退化成松散匹配）：{t}")
                 if t.strip() != t or not t:
                     problems.append(f"{sid}「{side}」检索词有首尾空格或为空：{t!r}")
 
@@ -603,8 +765,10 @@ def cmd_raw(args: argparse.Namespace) -> int:
         try:
             if source == "github":
                 batch = fn(args.raw_query, args.limit, token, "raw")
-            else:
+            elif source == "hn":
                 batch = fn(args.raw_query, args.limit, args.hn_tags)
+            else:
+                batch = fn(args.raw_query, args.limit)
         except Exception as e:
             print(f"  检索失败：{e}\n")
             continue
@@ -620,12 +784,66 @@ def cmd_raw(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sweep(args: argparse.Namespace) -> int:
+    """扫一遍全部议题，输出"可检索性地图"。
+
+    为什么要这个：实测发现不同议题的检索效果差异很大 ——
+    架构类议题（微服务/单体）中文讨论多、效果好；
+    生活/职场类（远程办公）和工具类（自建）用同样的方法却捞不到观点。
+    演示时只该挑"可检索"的议题上，其余用人工预置兜底。这张表就是选议题的依据。
+    """
+    rows = []
+    print("=" * 78)
+    print("议题可检索性扫描（假设库条目支持 side_a，去找 side_b）")
+    print("=" * 78)
+    print(f"{'议题':34}{'候选':>6}{'可用':>6}  {'主要来源'}")
+    print("-" * 78)
+
+    for issue in ISSUE_TAXONOMY:
+        sid = issue["issue_id"]
+        entry = ISSUE_TERMS.get(sid) or {}
+        if entry.get("retrieval") != "auto":
+            print(f"{sid:34}{'—':>6}{'—':>6}  人工预置（不检索）")
+            continue
+        want = opposite_side(issue, "a")
+        try:
+            cands = collect(
+                sid, want, limit=args.limit, sources=tuple(args.sources),
+                tier=args.tier, hn_tags=args.hn_tags,
+            )
+        except Exception as e:
+            print(f"{sid:34}{'ERR':>6}{'':>6}  {e}")
+            continue
+
+        anchors = list(issue["keywords"]) + list(entry.get("topics") or [])
+        for t in (entry.get("sides") or {}).values():
+            anchors += list(t)
+        anchors = list(dict.fromkeys(a.lower() for a in anchors))
+        ev = evaluate(cands, issue, anchors)
+
+        srcs = ",".join(f"{k}{v}" for k, v in sorted(ev["per_source"].items()))
+        ok, _ = verdict(ev)
+        rows.append((sid, len(ev["usable"]), ok))
+        print(f"{sid:34}{ev['unique_candidates']:>6}{len(ev['usable']):>6}  {srcs}")
+
+    print("-" * 78)
+    good = [r for r in rows if r[1] >= 5]
+    mid = [r for r in rows if 1 <= r[1] < 5]
+    bad = [r for r in rows if r[1] == 0]
+    print(f"✅ 可检索（≥5 条可用）  {len(good):>3} 个：" + "、".join(r[0] for r in good))
+    print(f"⚠️  偏弱（1–4 条）       {len(mid):>3} 个：" + "、".join(r[0] for r in mid))
+    print(f"❌ 失效（0 条）        {len(bad):>3} 个：" + "、".join(r[0] for r in bad))
+    print("\n演示选题建议：只挑 ✅ 里的议题，❌ 的改用人工预置反信息（保留字段位，别删）。")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="反引擎检索适配器 / 可行性探针")
     ap.add_argument("--selftest", action="store_true", help="离线自检术语表，不联网")
     ap.add_argument("--probe", metavar="ISSUE_ID", help="议题 id")
+    ap.add_argument("--sweep", action="store_true", help="扫全部议题，输出可检索性地图")
     ap.add_argument("--supports", help="库条目支持的立场（会去找它的对立面）")
-    ap.add_argument("--sources", default=",".join(RETRIEVAL_SOURCES), help="github,hn（默认仅 hn，原因见文件头注释）")
+    ap.add_argument("--sources", default=",".join(RETRIEVAL_SOURCES), help="v2ex,juejin,hn,github（默认中文优先，原因见文件头）")
     ap.add_argument("--tier", default="both", choices=("side", "topic", "both"), help="召回档位：sides 精确 / topics 宽 / both")
     ap.add_argument("--limit", type=int, default=5, help="每词每源取多少条")
     ap.add_argument("--samples", type=int, default=2, help="打印多少组样本")
@@ -646,6 +864,9 @@ def main() -> int:
 
     if args.raw_query:
         return cmd_raw(args)
+
+    if args.sweep:
+        return cmd_sweep(args)
 
     if args.list_issues:
         for i in ISSUE_TAXONOMY:
