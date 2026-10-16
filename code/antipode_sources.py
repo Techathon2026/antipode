@@ -95,6 +95,8 @@ class Candidate:
     query: str = ""
     created_at: str = ""
     popularity: int = 0
+    # 命中来自哪一档（对应下面的三档检索策略）：origin / global / synthesized
+    stage: str = ""
     extra: dict = field(default_factory=dict)
 
     def digest(self) -> dict:
@@ -389,6 +391,36 @@ ADAPTERS = {
     "juejin": search_juejin,
 }
 
+# ---------------------------------------------------------------------------
+# ★ 三档检索优先级（用户 2026-10-16 定的策略）
+# ---------------------------------------------------------------------------
+#   第一档 origin —— **原条目所在的那个源**。库条目来自 V2EX 就只在 V2EX 里找，
+#                    来自 GitHub 就只在 GitHub 里找。这一档最聪明的地方在于：
+#                    同一个社区里的人，讨论语境、术语、隐含前提是一致的，
+#                    找出来的"对立面"才是**同一个世界里的对立面**，
+#                    不会出现"中文帖子旁边配一篇硅谷博客"的割裂感。
+#   第二档 global —— 全网搜（所有已实现的源），第一档不够用时才启用。
+#   第三档 synthesized —— AI 自编。**默认关闭**，原因见下。
+#
+# ⚠️ 第三档的硬约束（必须遵守，否则整个产品的可信度根基会塌）：
+#   1. **绝不能编 URL**。没有真实 URL 的条目，宁可不要。
+#      反推荐的卖点是"真有另一面"，不是"AI 会抬杠"。
+#   2. 必须打标记 `synthesized: true`，且界面上与真实来源**视觉区分**
+#      （建议灰色虚线框 + 明确写"模型推测，非真实来源"）。
+#   3. 默认关闭，要显式开启。
+#   4. 答辩时必须主动交代哪几条是自编的。
+#   → 更安全的做法：把第三档实现成"**人工预置真实语料**"——
+#     提前从真实帖子里挑好存下来。它同样是兜底，但它不是编的。
+ORIGIN_TO_SOURCE = {
+    "v2ex": "v2ex",
+    "juejin": "juejin",
+    "hn": "hn",
+    "hackernews": "hn",
+    "github": "github",
+}
+
+SYNTHESIZED_ENABLED = False  # 第三档默认关闭，见上面的硬约束
+
 # 招聘 / 广告类噪声。V2EX 上这类帖子占比很高，一条正则就能剔掉一大批。
 # 实测：搜「坐班」时捞回的大多是"招聘：需驻场坐班开发""求活，可短时坐班可外包"，
 # 跟观点毫无关系。放在结果侧过滤，比在查询里想办法更省事。
@@ -400,6 +432,18 @@ NOISE_PATTERNS = re.compile(
 def is_noise(c: Candidate) -> bool:
     """标题里自报"我是招聘/广告"的，直接丢掉。"""
     return bool(NOISE_PATTERNS.search(c.title or ""))
+
+
+def is_usable_candidate(c: Candidate, anchors: list[str]) -> bool:
+    """粗判一条候选"值不值得送进模型"。只是**判断是否要补下一档**用的，
+    最终判定权在 stance_extractor，这里宁可宽松。
+
+    为什么按"可用数"而不是"候选数"决定要不要补全网：
+    实测过 —— 原条目来自 V2EX 时，第一档捞回 13 条，看着很够，
+    但里面混着"monolith 是个把网页打包成单文件的工具"这种同名假朋友，
+    真正沾题带立场的只有 1 条。按候选数判断会误以为够了。
+    """
+    return keyword_hit(c.text, anchors) and has_stance_signal(c)
 
 
 def _delay_for(source: str, has_github_token: bool) -> float:
@@ -418,13 +462,28 @@ def collect(
     tier: str = "both",
     hn_tags: str = "story",
     sleep: bool = True,
+    origin: str = "",
+    anchors: list[str] | None = None,
+    min_usable: int = 3,
+    allow_global: bool = True,
 ) -> list[Candidate]:
-    """给定议题和"想要的一方"，用该方的检索词去各源检索，返回去重后的候选。
+    """给定议题和"想要的一方"，按三档优先级检索，返回去重后的候选。
 
-    tier 决定召回策略：
+    检索顺序（用户 2026-10-16 定的策略）：
+        origin  原条目所在的源 —— 先只在这里找（同一个社区的对立面才是"同一个世界的对立面"）
+        global  全网 —— 第一档的**可用候选**不足 min_usable 条时才启用
+        （第三档 synthesized 不在本函数内，它不属于"检索"，见文件头硬约束）
+
+    ⚠️ 判断"够不够"用的是**可用候选数**（沾题 + 带立场信号），不是候选总数。
+    实测过：按总数判断会误以为够了 —— 第一档捞回 13 条，其中 12 条是同名假朋友。
+
+    tier 决定召回词：
         side   只用该方自己的词（精确召回，命中率高但条数少）
         topic  只用议题关键词（宽召回，两方内容都会进来，靠模型筛）
         both   两者都用（默认推荐：先精确、再补宽召回）
+
+    每个候选都会带上 `stage` 字段，标明它是哪一档找来的 —— 这个字段会一路带到反库条目的
+    `found_by.stage` 里，答辩时可以逐条说清"这条是怎么来的"。
     """
     entry = ISSUE_TERMS.get(issue_id)
     if entry is None:
@@ -443,33 +502,61 @@ def collect(
     seen: set[str] = set()
     results: list[Candidate] = []
     dropped_noise = 0
-    for term in terms:
-        for source in sources:
-            fn = ADAPTERS[source]
-            try:
-                if source == "github":
-                    batch = fn(term, limit, token, "body")
-                elif source == "hn":
-                    batch = fn(term, limit, hn_tags)
-                else:
-                    batch = fn(term, limit)
-            except RateLimited as e:
-                print(f"    [!] {source} 限流，跳过「{term}」：{e}", file=sys.stderr)
-                time.sleep(5)
-                continue
-            except Exception as e:  # 单个 query 失败不该拖垮整轮
-                print(f"    [!] {source} 检索「{term}」失败：{e}", file=sys.stderr)
-                continue
-            for c in batch:
-                if c.url in seen:
+
+    # 组装档位
+    stages: list[tuple[str, tuple[str, ...]]] = []
+    origin_src = ORIGIN_TO_SOURCE.get((origin or "").lower())
+    if origin_src and origin_src not in sources:
+        # 原条目来自一个当前没启用的源（比如只开了 hn，但条目来自 v2ex）→ 也给它加上
+        sources = (origin_src,) + tuple(s for s in sources if s != origin_src)
+    if origin_src:
+        stages.append(("origin", (origin_src,)))
+    if allow_global:
+        stages.append(("global", tuple(sources)))
+    if not stages:
+        stages.append(("", tuple(sources)))
+
+    for stage_name, srcs in stages:
+        # 第一档已经攒够**可用**候选就不必全网扫了 —— 这正是"同源优先"的意义。
+        # 注意算的是 usable 而不是 len(results)：候选多不等于有用（同名假朋友问题）。
+        if stage_name == "global" and anchors is not None:
+            usable_now = sum(1 for c in results if is_usable_candidate(c, anchors))
+            if usable_now >= min_usable:
+                print(f"    [优先级] 同源已给出 {usable_now} 条可用候选 → 不启用全网搜", file=sys.stderr)
+                break
+            print(f"    [优先级] 同源只有 {usable_now} 条可用候选 → 补全网搜", file=sys.stderr)
+        elif stage_name == "global" and anchors is None and len(results) >= min_usable:
+            break
+
+        for term in terms:
+            for source in srcs:
+                fn = ADAPTERS[source]
+                try:
+                    if source == "github":
+                        batch = fn(term, limit, token, "body")
+                    elif source == "hn":
+                        batch = fn(term, limit, hn_tags)
+                    else:
+                        batch = fn(term, limit)
+                except RateLimited as e:
+                    print(f"    [!] {source} 限流，跳过「{term}」：{e}", file=sys.stderr)
+                    time.sleep(5)
                     continue
-                seen.add(c.url)
-                if is_noise(c):
-                    dropped_noise += 1
+                except Exception as e:  # 单个 query 失败不该拖垮整轮
+                    print(f"    [!] {source} 检索「{term}」失败：{e}", file=sys.stderr)
                     continue
-                results.append(c)
-            if sleep:
-                time.sleep(_delay_for(source, bool(token)))
+                for c in batch:
+                    if c.url in seen:
+                        continue
+                    seen.add(c.url)
+                    if is_noise(c):
+                        dropped_noise += 1
+                        continue
+                    c.stage = stage_name
+                    results.append(c)
+                if sleep:
+                    time.sleep(_delay_for(source, bool(token)))
+
     if dropped_noise:
         print(f"    [过滤] 剔除 {dropped_noise} 条招聘/广告类噪声", file=sys.stderr)
     return results
@@ -550,9 +637,15 @@ def evaluate(cands: list[Candidate], issue: dict, anchors: list[str] | None = No
     for c in cands:
         per_source[c.source] = per_source.get(c.source, 0) + 1
 
+    per_stage: dict[str, int] = {}
+    for c in cands:
+        key = c.stage or "未标注"
+        per_stage[key] = per_stage.get(key, 0) + 1
+
     return {
         "unique_candidates": len(cands),
         "per_source": per_source,
+        "per_stage": per_stage,
         "substantial": len(substantial),
         "argumentative": len(arg_hits),
         "topical": len(topical),
@@ -685,7 +778,17 @@ def cmd_probe(args: argparse.Namespace) -> int:
     print(f"该方的检索词       {' / '.join(ISSUE_TERMS[issue['issue_id']]['sides'][want])}")
     print(f"召回档位           {args.tier}")
     print(f"检索源             {', '.join(args.sources)}   每词每源取 {args.limit} 条")
+    if args.origin:
+        src = ORIGIN_TO_SOURCE.get(args.origin.lower(), "（无对应适配器）")
+        print(f"原条目所在的源     {args.origin} → 第一档只在 {src} 里找，"
+              f"可用候选够 {args.min_usable} 条就不全网搜")
     print("-" * 68)
+
+    entry = ISSUE_TERMS[issue["issue_id"]]
+    anchors = list(issue["keywords"]) + list(entry["topics"])
+    for t in entry["sides"].values():
+        anchors += list(t)
+    anchors = list(dict.fromkeys(a.lower() for a in anchors))
 
     try:
         cands = collect(
@@ -695,22 +798,21 @@ def cmd_probe(args: argparse.Namespace) -> int:
             sources=tuple(args.sources),
             tier=args.tier,
             hn_tags=args.hn_tags,
+            origin=args.origin,
+            anchors=anchors,
+            min_usable=args.min_usable,
         )
     except (KeyError, ValueError) as e:
         print(f"❌ {e}", file=sys.stderr)
         return 2
 
-    entry = ISSUE_TERMS[issue["issue_id"]]
-    anchors = list(issue["keywords"]) + list(entry["topics"])
-    for t in entry["sides"].values():
-        anchors += list(t)
-    anchors = list(dict.fromkeys(a.lower() for a in anchors))
     ev = evaluate(cands, issue, anchors)
 
     for c in cands[: args.samples * 5]:
         top = "题" if keyword_hit(c.text, anchors) else "  "
         st = "立" if has_stance_signal(c) else "  "
-        print(f"[{c.source:6} | {top}{st}] {c.title[:60]}")
+        stage = {"origin": "同源", "global": "全网"}.get(c.stage, c.stage or "  ")
+        print(f"[{stage}·{c.source:6} | {top}{st}] {c.title[:56]}")
         print(f"           {c.url}")
         print(f"           {re.sub(chr(10) + '+', ' ', c.text)[:170]}")
         print()
@@ -719,6 +821,7 @@ def cmd_probe(args: argparse.Namespace) -> int:
     print("评估")
     print("=" * 68)
     print(f"候选总数（去重后）   {ev['unique_candidates']}")
+    print(f"  按档位             {ev['per_stage']}")
     print(f"  按来源             {ev['per_source']}")
     print(f"文本长度达标         {ev['substantial']}")
     print(f"  含论证痕迹         {ev['argumentative']}")
@@ -837,14 +940,116 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# 议题发现：从真实语料里反推"网上真的有人在吵什么"
+# ---------------------------------------------------------------------------
+# 背景：现有 16 个议题是**凭常识拟的**，实测下来只有 3 个能检索到足够好的对立内容。
+# 原因很朴素 —— "技术圈公认存在的争论" ≠ "中文技术圈真的在讨论的争论"。
+# 比如"远程办公 vs 坐班"在英文圈是热门争论（HN 上极多），中文社区里却搜不到，
+# 因为大家关心的是别的事。
+#
+# 所以改用**数据驱动**：拿"争论标记词"去搜，捞出来的就是真实存在的争论，
+# 再用领域词聚类，看哪些话题反复出现 —— 那才是候选议题。
+DISCOVER_MARKERS = (
+    "该不该", "要不要", "优缺点", "值得吗", "有必要",
+    "劝退", "后悔", "为什么不用", "值不值", "该选哪个",
+)
+
+# 用来判断一条帖子"是不是在争论"的标记。出现任一即算。
+# ⚠️ 第一版漏了"缺点"（"微服务的缺点"没被识别成争论帖），所以词表要比直觉更宽。
+DEBATE_MARKERS = (
+    "该不该", "要不要", "优缺点", "缺点", "不足", "值得吗", "值不值",
+    "有没有必要", "有必要吗", "有必要", "劝退", "后悔", "为什么不用", "该选哪个",
+    "好用吗", "坑", "踩坑", "吐槽", "争议", "撕逼", "怎么看", "如何评价",
+    "还值得", "过时", "淘汰", "取代", "好不好",
+)
+
+DISCOVER_DOMAINS = (
+    "中台", "低代码", "微服务", "单体", "架构", "重构", "技术债",
+    "单元测试", "代码评审", "集成测试",
+    "容器", "k8s", "kubernetes", "docker", "devops", "运维", "监控", "serverless",
+    "云", "自建", "私有化",
+    "前端", "后端", "全栈", "react", "vue", "angular", "svelte", "flutter", "小程序",
+    "java", "golang", "python", "php", "rust", "c++", "node", "typescript",
+    "数据库", "orm", "sql", "nosql", "redis", "mysql", "postgres",
+    "设计模式", "静态类型", "动态类型", "函数式", "面向对象",
+    "开源", "面试", "学历", "加班", "远程", "跳槽", "副业", "读研", "转行", "大厂",
+    "copilot", "大模型", "gpt", "cursor", "ai 编程",
+)
+
+
+def cmd_discover(args: argparse.Namespace) -> int:
+    """扫候选技术词，看哪个词的结果里"争论帖"最多 —— 用来挑真正适合做议题的话题。
+
+    用法：python antipode_sources.py --discover --limit 8
+
+    【为什么是"反过来扫"】
+    先试过正向扫（拿"该不该/要不要"去搜，再从结果里找技术词）—— 失败。
+    70 条结果里一个技术领域词都没命中：中文技术论坛里"该不该""要不要"这类措辞
+    主要命中**生活决策帖**（提前还贷、送礼给室友、辞职回家、要不要提升学历），
+    技术选型的争论不用这套措辞。
+
+    所以改成：拿候选技术词逐个搜，数它的结果里有多少条标题带争论标记
+    （优缺点 / 该不该 / 值得吗 / 劝退 / 后悔 / 有没有必要 …）。
+    争论帖占比高的技术词 = 这个话题真的有人吵 = 适合做成议题。
+    """
+    print("=" * 78)
+    print(f"议题发现 —— 反扫候选技术词（{len(DISCOVER_DOMAINS)} 个词，每词取 {args.limit} 条）")
+    print("=" * 78)
+
+    rows = []
+    for i, term in enumerate(DISCOVER_DOMAINS, 1):
+        try:
+            batch = ADAPTERS["v2ex"](term, args.limit)
+        except Exception as e:
+            print(f"  [!] 「{term}」检索失败：{e}", file=sys.stderr)
+            continue
+
+        clean = [c for c in batch if not is_noise(c)]
+        # 只认标题里真的出现该词的（sov2ex 匹配很松，不筛会全是噪声）
+        topical = [c for c in clean if term.lower() in (c.title or "").lower()]
+        debated = [c for c in topical if any(mk in (c.title or "") for mk in DEBATE_MARKERS)]
+
+        if topical:
+            rows.append((term, len(topical), len(debated), debated or topical))
+        if i % 10 == 0:
+            print(f"  ...已扫 {i}/{len(DISCOVER_DOMAINS)}", file=sys.stderr)
+        time.sleep(_delay_for("v2ex", False))
+
+    print("-" * 78)
+    rows.sort(key=lambda r: (-r[2], -r[1]))
+    print(f"{'候选议题词':<14}{'命中':>5}{'其中争论帖':>10}   样例标题")
+    print("-" * 78)
+    for term, n_top, n_deb, samples in rows:
+        if n_top < args.min_count:
+            continue
+        flag = "★" if n_deb > 0 else " "
+        print(f"{flag}{term:<13}{n_top:>5}{n_deb:>10}   {(samples[0].title or '')[:46]}")
+        for c in samples[1:2]:
+            print(f"{'':<14}{'':>5}{'':>10}   {(c.title or '')[:46]}")
+        print(f"{'':<14}{'':>5}{'':>10}   {samples[0].url}")
+
+    print("-" * 78)
+    print("怎么用这张表：")
+    print("  · ★ 且「其中争论帖」多的词 = 真实语料里反复被吵的话题，优先做议题")
+    print("  · 还要能说出**两个明确的对立面**（本系统的二元结构要求）")
+    print("  · 最后用 --probe <issue_id> 测可检索性，通过的才进清单")
+    print("  · 光有命中、没有争论帖的词（如纯工具名）= 有人在问怎么做，不是在吵，不适合")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="反引擎检索适配器 / 可行性探针")
     ap.add_argument("--selftest", action="store_true", help="离线自检术语表，不联网")
     ap.add_argument("--probe", metavar="ISSUE_ID", help="议题 id")
     ap.add_argument("--sweep", action="store_true", help="扫全部议题，输出可检索性地图")
+    ap.add_argument("--discover", action="store_true", help="从真实争论帖反推候选议题")
+    ap.add_argument("--min-count", type=int, default=2, help="--discover 时至少出现几次才列出")
     ap.add_argument("--supports", help="库条目支持的立场（会去找它的对立面）")
     ap.add_argument("--sources", default=",".join(RETRIEVAL_SOURCES), help="v2ex,juejin,hn,github（默认中文优先，原因见文件头）")
     ap.add_argument("--tier", default="both", choices=("side", "topic", "both"), help="召回档位：sides 精确 / topics 宽 / both")
+    ap.add_argument("--origin", default="", help="原条目所在的源（v2ex/juejin/hn/github）→ 第一档只在它里面找")
+    ap.add_argument("--min-usable", type=int, default=3, help="第一档的可用候选够几条就不全网搜")
     ap.add_argument("--limit", type=int, default=5, help="每词每源取多少条")
     ap.add_argument("--samples", type=int, default=2, help="打印多少组样本")
     ap.add_argument("--list-issues", action="store_true", help="列出全部议题与术语")
@@ -867,6 +1072,9 @@ def main() -> int:
 
     if args.sweep:
         return cmd_sweep(args)
+
+    if args.discover:
+        return cmd_discover(args)
 
     if args.list_issues:
         for i in ISSUE_TAXONOMY:
