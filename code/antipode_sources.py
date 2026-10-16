@@ -50,7 +50,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, replace
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -70,16 +70,22 @@ HTTP_TIMEOUT = 25
 # 所有已实现的源
 SOURCES = ("v2ex", "juejin", "hn", "github")
 
-# 中文源 / 英文源分组。仓库里的内容是中文为主，所以反信息也**优先取中文源**，
-# 否则中文库旁边配一堆英文文章，演示时观感是割裂的。
+# 中文源 / 英文源分组。
+#
+# ★ 2026-10-16 晚调整：用户指出**本产品面向国内用户，HN 在国内基本没有市场**。
+#   所以源策略从"中文优先 + 英文补充"改成**中文为唯一默认**：
+#     · 一个给国内用户用的产品，反库里塞满英文硅谷博客是产品错位，不是语言偏好问题
+#     · HN 保留为**可选源**：只在源内容本身是英文时才该启用（`--sources hn`）
+#   实测依据：V2EX 的 `_source.content` 就是帖子完整正文（500+ 字），
+#   足够支撑证据与摘要；反观 HN 的文章模式只有标题，反而更薄。
 CN_SOURCES = ("v2ex", "juejin")
 EN_SOURCES = ("hn",)
 
-# 检索"对立观点"时的默认源：中文优先，英文补一条。
-# ⚠️ 实测结论（2026-10-16）：**GitHub 不适合做观点检索源** —— 搜 monolith 捞回来的是
-# 33KB 的内核模块化草稿、webpack 构建优化、图片下载进度条，全是顺带提了一次该词的技术记录。
+# 检索"对立观点"时的默认源：**只用中文源**（理由见上）。
+# ⚠️ GitHub 也不在默认里 —— 实测它不适合做观点检索源（搜 monolith 返回的是
+# 33KB 内核模块化草稿、webpack 构建优化、图片下载进度条）。
 # GitHub 的价值在**收集侧**（队友读用户 star 的仓库 / issue），不在反引擎这一侧。
-RETRIEVAL_SOURCES = CN_SOURCES + ("hn",)
+RETRIEVAL_SOURCES = CN_SOURCES
 
 
 # ---------------------------------------------------------------------------
@@ -295,10 +301,18 @@ def search_v2ex(query: str, limit: int, sort: str = "") -> list[Candidate]:
     for h in data.get("hits") or []:
         src = h.get("_source") or {}
         hl = h.get("highlight") or {}
-        # 命中的片段优先（它含关键词上下文），否则退回全文
-        snippet = " ".join(hl.get("content") or []) or (src.get("content") or "")
-        snippet = html.unescape(re.sub(r"</?em>", "", snippet))
         title = (src.get("title") or "").strip()
+
+        # ★ 关键：`_source.content` 是**帖子完整正文**，而 highlight 只是命中的那一小段。
+        #   第一版误用了 highlight（117 字），把 571 字的正文浪费了 —— 结果就是
+        #   候选"内容太薄"，模型判立场只能给 0.6 的置信度。
+        #   这里改成优先用完整正文，highlight 只在正文缺失时兜底。
+        body = re.sub(r"\s+", " ", (src.get("content") or "")).strip()
+        snippet = " ".join(hl.get("content") or [])
+        snippet = html.unescape(re.sub(r"</?em>", "", snippet))
+        if not body:
+            body = re.sub(r"\s+", " ", snippet).strip()
+
         tid = h.get("_id")
         out.append(
             Candidate(
@@ -306,14 +320,107 @@ def search_v2ex(query: str, limit: int, sort: str = "") -> list[Candidate]:
                 candidate_id=f"v2ex-{tid}",
                 url=f"https://www.v2ex.com/t/{tid}",
                 title=title,
-                text=f"{title}\n\n{re.sub(r'[ \t]+', ' ', snippet).strip()}".strip(),
+                text=f"{title}\n\n{body}".strip(),
                 query=query,
                 created_at=(src.get("created") or "")[:19],
                 popularity=int(src.get("replies") or 0),
-                extra={"replies": src.get("replies"), "node": src.get("node")},
+                extra={
+                    "replies": src.get("replies"),
+                    "node": src.get("node"),
+                    "highlight": snippet[:200],
+                    "content_len": len(body),
+                },
             )
         )
     return out
+
+
+def fetch_hn_story_comments(story_id: str, limit: int = 6, min_len: int = 60) -> list[Candidate]:
+    """取某篇 HN 文章下的讨论评论。
+
+    为什么需要它：HN 的**文章模式只有标题**（"Monoliths Are the Future"），
+    拿它当证据等于把"声明"当"论据"。而讨论区里全是真论证 ——
+    实测某篇文章下 445 条评论，随手一条就是 500 字的成本对比。
+
+    Algolia 支持 `tags=comment,story_<id>` 按文章取评论，纯 JSON，无需抓网页。
+    每条评论都有永久链接（`news.ycombinator.com/item?id=<objectID>`），
+    所以**证据本身可以点开验证** —— 这对"回现场"铁律是加分项。
+    """
+    url = "https://hn.algolia.com/api/v1/search?" + urllib.parse.urlencode(
+        {"tags": f"comment,story_{story_id}", "hitsPerPage": max(limit * 4, 16)}
+    )
+    data = _http_json(url)
+
+    out: list[Candidate] = []
+    for it in data.get("hits", []):
+        text = strip_html(it.get("comment_text") or "")
+        if len(text) < min_len:
+            continue
+        oid = it.get("objectID")
+        out.append(
+            Candidate(
+                source="hn",
+                candidate_id=f"hn-{oid}",
+                url=f"https://news.ycombinator.com/item?id={oid}",
+                title=it.get("story_title") or "",
+                text=text,
+                query="(story comments)",
+                created_at=it.get("created_at") or "",
+                popularity=int(it.get("points") or 0),
+                stage="enrich",
+                extra={"author": it.get("author"), "tags": "comment", "story_id": story_id},
+            )
+        )
+    # 优先有论证痕迹、其次更长的
+    out.sort(key=lambda c: (looks_argumentative(c.text), len(c.text)), reverse=True)
+    return out[:limit]
+
+
+def enrich_candidate(c: Candidate, comment_limit: int = 3, max_chars: int = 1400) -> Candidate:
+    """给"只有标题"的候选补论证素材。
+
+    只处理 HN 文章模式的候选；补进来的评论会存进 `extra["comments"]`，
+    由引擎**逐条判立场**，挑出真正站对立面的那一条当证据 ——
+    而不是把一整段混合正反观点的讨论当成一个整体去判（讨论区天然是两派在吵）。
+    """
+    if c.source != "hn" or (c.extra or {}).get("tags") != "story":
+        return c
+    if len(c.text) >= 200:  # 已经有正文了
+        return c
+
+    story_id = str((c.extra or {}).get("story_id") or c.candidate_id.replace("hn-", ""))
+    if not story_id.isdigit():
+        return c
+
+    try:
+        comments = fetch_hn_story_comments(story_id, limit=comment_limit)
+    except Exception as e:
+        print(f"    [!] 补评论失败（story {story_id}）：{e}", file=sys.stderr)
+        return c
+    if not comments:
+        return c
+
+    parts = [c.title.strip()]
+    total = len(c.title)
+    used = []
+    for cm in comments:
+        if total + len(cm.text) > max_chars:
+            break
+        parts.append(cm.text)
+        total += len(cm.text)
+        used.append({"text": cm.text, "url": cm.url, "author": (cm.extra or {}).get("author")})
+
+    return replace(
+        c,
+        text="\n\n".join(parts),
+        extra={
+            **(c.extra or {}),
+            "enriched": True,
+            "comments_used": len(used),
+            "comments": used,
+            "discussion_url": f"https://news.ycombinator.com/item?id={story_id}",
+        },
+    )
 
 
 def search_juejin(query: str, limit: int) -> list[Candidate]:
@@ -429,9 +536,20 @@ NOISE_PATTERNS = re.compile(
 )
 
 
+# 汇总/周刊类噪声：这类帖子是"链接合集"，本身不表达观点。
+# 实测：搜出来的 "DTO Weekly Curations #2" 被判成对立内容并进了反库 —— 但它只是
+# 转载了别人的文章标题，标题里的立场不属于发帖人。汇总帖不是观点载体，剔除。
+DIGEST_PATTERNS = re.compile(
+    r"(周刊|周报|日报|合集|汇总|导航|盘点|第\s*\d+\s*期"
+    r"|Weekly|Curation|Newsletter|Digest|Top\s*\d+)",
+    re.I,
+)
+
+
 def is_noise(c: Candidate) -> bool:
-    """标题里自报"我是招聘/广告"的，直接丢掉。"""
-    return bool(NOISE_PATTERNS.search(c.title or ""))
+    """自报"我是招聘/广告/汇总"的，直接丢掉。"""
+    title = c.title or ""
+    return bool(NOISE_PATTERNS.search(title) or DIGEST_PATTERNS.search(title))
 
 
 def is_usable_candidate(c: Candidate, anchors: list[str]) -> bool:

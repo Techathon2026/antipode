@@ -126,6 +126,7 @@ class Funnel:
     per_stage: dict = field(default_factory=dict)
     per_source: dict = field(default_factory=dict)
     prescreened: int = 0
+    enriched: int = 0        # 补过论证素材的候选数（HN 文章只有标题）
     verify_calls: int = 0
     passed: int = 0          # 通过二次判立场的条数
     truncated: int = 0       # 通过但因超出 top_k 没输出的条数
@@ -154,6 +155,8 @@ class Funnel:
         L.append(f"③ 检索候选     {self.candidates} 条   "
                  f"档位 {self.per_stage}   来源 {self.per_source}")
         L.append(f"   粗筛送检     {self.prescreened} 条（按沾题 + 立场信号排序）")
+        if self.enriched:
+            L.append(f"   补论证素材   {self.enriched} 条（HN 文章只有标题 → 取其讨论评论）")
         L.append(f"④ 二次判立场   {self.verify_calls} 次调用 → 通过 {self.passed} 条")
         if self.rejected:
             detail = " / ".join(f"{k} {v}" for k, v in sorted(self.rejected.items()))
@@ -243,6 +246,7 @@ def build_antipode_items(
     max_verify: int = 8,
     top_k: int = 3,
     origin_bonus: float = 1.25,
+    enrich: bool = True,
     offline: bool = False,
     report_only: bool = False,
     verbose: bool = True,
@@ -310,51 +314,122 @@ def build_antipode_items(
         f.per_stage[c.stage or "未标注"] = f.per_stage.get(c.stage or "未标注", 0) + 1
         f.per_source[c.source] = f.per_source.get(c.source, 0) + 1
 
-    # 粗筛：可用的排前面，保证送检的是最像样的一批
-    usable = [c for c in cands if is_usable_candidate(c, anchors)]
-    rest = [c for c in cands if c not in usable]
-    to_verify = (usable + rest)[:max_verify]
+    # 粗筛：分三档排队，保证送检的是最像样的一批。
+    #
+    # ⚠️ 单列"问句标题"这一档：实测「单体服务中，模块之间相互调用怎么优雅地实现？」
+    # 这种**技术求助帖**会被模型判成"支持单体"（置信度 0.95）—— 就因为标题里有"单体服务"。
+    # 但提问不是立场表达。判据与 passage_selector 的"纯提问扣分"保持一致：
+    # 不直接丢（有些问句标题的正文里有明确结论），但只在非问句候选不够时才启用。
+    QUESTION_TITLE = re.compile(r"[?？]\s*$")
+    is_q = lambda c: bool(QUESTION_TITLE.search(c.title or ""))
+    ok = lambda c: is_usable_candidate(c, anchors)
+    to_verify = ([c for c in cands if ok(c) and not is_q(c)]
+                 + [c for c in cands if ok(c) and is_q(c)]
+                 + [c for c in cands if not ok(c)])[:max_verify]
     f.prescreened = len(to_verify)
     if verbose:
-        print(f"  [检索] 候选 {len(cands)} 条，其中{len(usable)} 条沾题带立场；送检 {len(to_verify)} 条",
+        n_ok = sum(1 for c in cands if ok(c))
+        print(f"  [检索] 候选 {len(cands)} 条，其中 {n_ok} 条沾题带立场；送检 {len(to_verify)} 条",
               file=sys.stderr)
 
+    # 补论证素材：HN 文章模式只有标题，拿它当证据等于把"声明"当"论据"。
+    # 这里给送检的候选补上该文章的讨论评论，后面会**逐条判**并挑出站对立面的那条。
+    if enrich and not offline:
+        from antipode_sources import enrich_candidate
+
+        enriched_list = []
+        for c in to_verify:
+            before = bool((c.extra or {}).get("enriched"))
+            up = enrich_candidate(c)
+            if (up.extra or {}).get("enriched") and not before:
+                f.enriched += 1
+                if verbose:
+                    print(f"  [补素材] {up.title[:44]} → +{up.extra.get('comments_used')} 条讨论"
+                          f"（{len(c.text)} → {len(up.text)} 字）", file=sys.stderr)
+            enriched_list.append(up)
+        to_verify = enriched_list
+
     # ---------- ④ 二次判立场（本环节是整个引擎的精度来源） ----------
-    accepted: list[tuple[Candidate, Judgment, str, str]] = []
+    #
+    # 两条路径：
+    #   A. 候选带论证素材（HN 文章已补评论）→ **逐条评论判**，挑出真正站对立面的那条当证据。
+    #      为什么不在整段上判：讨论区天然是两派在吵，整段判容易得到"中立"，
+    #      而且拿不出"到底是哪句话"—— 逐条判才能给出可点开验证的证据。
+    #   B. 候选自带正文（V2EX 片段等）→ 整条判，证据优先用模型给的片段。
+    accepted: list[dict] = []
     for c in to_verify:
         if not keyword_hit(c.text, anchors):
             f.reject("不沾题")
             continue
-        try:
-            js = backend.judge([c.text], issue_id)
-        except Exception as e:
-            print(f"    [!] 判立场失败：{e}", file=sys.stderr)
-            f.reject("调用失败")
-            continue
-        f.verify_calls += len(js) or 1
 
-        hit = next((j for j in js if j.issue_id == issue_id and j.side == expect_side), None)
-        if hit is None:
-            sides = {j.side for j in js}
-            if not sides or sides <= {"unknown"}:
-                f.reject("判不出")
-            elif "neutral" in sides or "undetermined" in sides:
-                f.reject("中立")
+        comments = (c.extra or {}).get("comments") or []
+        picked: dict | None = None
+        last_js: list[Judgment] = []
+
+        if comments:
+            for cm in comments[:3]:
+                try:
+                    js = backend.judge([cm["text"]], issue_id)
+                except Exception as e:
+                    print(f"    [!] 判评论失败：{e}", file=sys.stderr)
+                    f.reject("调用失败")
+                    continue
+                f.verify_calls += len(js) or 1
+                last_js = js
+                hit = next((j for j in js if j.issue_id == issue_id and j.side == expect_side), None)
+                if hit:
+                    picked = {
+                        "hit": hit,
+                        "span": first_sentence(cm["text"]),
+                        "ev_source": "hn_comment",
+                        "ev_url": cm.get("url") or c.url,
+                        "excerpt": re.sub(r"\s+", " ", cm["text"]).strip()[:400],
+                    }
+                    break
+
+        if picked is None:
+            try:
+                js = backend.judge([c.text], issue_id)
+            except Exception as e:
+                print(f"    [!] 判立场失败：{e}", file=sys.stderr)
+                f.reject("调用失败")
+                continue
+            f.verify_calls += len(js) or 1
+            last_js = js
+            hit = next((j for j in js if j.issue_id == issue_id and j.side == expect_side), None)
+            if hit is None:
+                sides = {j.side for j in js} or {"unknown"}
+                if sides <= {"unknown"}:
+                    f.reject("判不出")
+                elif sides & {"neutral", "undetermined"}:
+                    f.reject("中立")
+                else:
+                    f.reject("站错边")
+                continue
+            span = (hit.evidence_span or "").strip()
+            if span and verify_evidence(c.text, span):
+                ev_source = "model"
             else:
-                f.reject("站错边")
-            continue
+                span = first_sentence(c.text)
+                ev_source = "candidate_text"
+            if not verify_evidence(c.text, span):
+                f.reject("证据缺失")
+                continue
+            # 问句标题的候选：如果模型只能拿标题本身当证据，说明它在**正文里**
+            # 拿不出立场句 —— 那就是个技术求助帖，不是观点表达。
+            # （实测：「单体服务中，模块之间相互调用怎么优雅地实现？」被判支持单体，0.95）
+            if is_q and normalize(span) == normalize(c.title or ""):
+                f.reject("只有提问，正文无立场")
+                continue
+            picked = {
+                "hit": hit,
+                "span": span,
+                "ev_source": ev_source,
+                "ev_url": c.url,
+                "excerpt": re.sub(r"\s+", " ", c.text).strip()[:400],
+            }
 
-        # 证据：优先用模型给的片段；给不出就退化为候选原文首句，并如实标注来源
-        span = (hit.evidence_span or "").strip()
-        if span and verify_evidence(c.text, span):
-            ev_source = "model"
-        else:
-            span = first_sentence(c.text)
-            ev_source = "candidate_text"
-        if not verify_evidence(c.text, span):
-            f.reject("证据缺失")
-            continue
-        accepted.append((c, hit, span, ev_source))
+        accepted.append({"c": c, **picked})
 
     # 排序：按**质量问题**（对立度），同源只给温和加成。
     #
@@ -368,7 +443,7 @@ def build_antipode_items(
     # 最终理解（也更符合用户原意）：**"第一档"管"去哪儿找"，不管"最终选谁"。**
     # 所以：检索严格三档；排序仍按质量，同源给 1.25 倍温和加成
     # （0.60×1.25=0.75 < 1.00，压不过真正的强对立；但 0.85×1.25=1.06 > 1.00，能赢）。
-    rank = lambda t: -(t[1].confidence * (origin_bonus if t[0].stage == "origin" else 1.0))
+    rank = lambda t: -(t["hit"].confidence * (origin_bonus if t["c"].stage == "origin" else 1.0))
     accepted.sort(key=rank)
     f.passed = len(accepted)
     if len(accepted) > top_k:
@@ -378,8 +453,10 @@ def build_antipode_items(
 
     # ---------- ⑤⑥ 省流 + 写反库 ----------
     items: list[dict] = []
-    for i, (c, j, span, ev_source) in enumerate(accepted, 1):
-        summary, sum_src = make_summary(c.text, backend)
+    for i, a in enumerate(accepted, 1):
+        c, hit = a["c"], a["hit"]
+        # 省流基于**证据原文**（有评论就用评论），而不是整段混合讨论
+        summary, sum_src = make_summary(a["excerpt"], backend)
         f.summary_from[sum_src] = f.summary_from.get(sum_src, 0) + 1
         items.append({
             "id": f"anti-{f.vault_item_id}-{i}",
@@ -388,11 +465,13 @@ def build_antipode_items(
             "counter_type": COUNTER_TYPE,
             "takes_side": want,
             "url": c.url,
+            # 证据本身的永久链接 —— 点开就能看到那句话（HN 评论天然带永久链接）
+            "evidence_url": a["ev_url"],
             "title": c.title,
             "summary": summary,
-            "raw_excerpt": re.sub(r"\s+", " ", c.text).strip()[:400],
-            "evidence_span": span,
-            "opposition_score": round(float(j.confidence), 3),
+            "raw_excerpt": a["excerpt"],
+            "evidence_span": a["span"],
+            "opposition_score": round(float(hit.confidence), 3),
             "argument_score": None,
             "synthesized": False,
             "gate": {
@@ -403,15 +482,17 @@ def build_antipode_items(
                     "opposite_side_confirmed",
                     "evidence_verified",
                 ],
-                "evidence_source": ev_source,
-                "stance_confidence": round(float(j.confidence), 3),
-                "backend": j.backend,
+                "evidence_source": a["ev_source"],
+                "stance_confidence": round(float(hit.confidence), 3),
+                "backend": hit.backend,
             },
             "found_by": {
                 "stage": c.stage or "unknown",
                 "source": c.source,
                 "query": c.query,
                 "candidate_id": c.candidate_id,
+                "enriched": bool((c.extra or {}).get("enriched")),
+                "discussion_url": (c.extra or {}).get("discussion_url", ""),
                 "retrieved_at": now_iso(),
             },
         })
@@ -524,6 +605,7 @@ def main() -> int:
     ap.add_argument("--top-k", type=int, default=3)
     ap.add_argument("--origin-bonus", type=float, default=1.25,
                     help="排序时对同源候选的加成倍数（1.0 = 不加成）")
+    ap.add_argument("--no-enrich", action="store_true", help="不补论证素材（HN 讨论评论）")
     ap.add_argument("--out", default="", help="输出路径（默认 data/antipode_<vault_id>.jsonl）")
     ap.add_argument("--report-only", action="store_true", help="只打印漏斗，不写文件")
     args = ap.parse_args()
@@ -561,7 +643,7 @@ def main() -> int:
         items, f = build_antipode_items(
             vault_item, vault, backend=backend, sources=sources, origin=args.origin,
             max_verify=args.max_verify, top_k=args.top_k, offline=args.offline,
-            origin_bonus=args.origin_bonus,
+            origin_bonus=args.origin_bonus, enrich=not args.no_enrich,
         )
     except RuntimeError as e:
         print(f"❌ {e}", file=sys.stderr)
