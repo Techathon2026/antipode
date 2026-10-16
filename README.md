@@ -2,7 +2,8 @@
 
 > TECHATHON 2026 参赛项目 · 暂定名，可随时更换
 >
-> 仓库地址：<https://github.com/ciqiongovo/antipode>
+> 仓库地址：<https://github.com/Techathon2026/antipode>
+> （个人镜像：<https://github.com/ciqiongovo/antipode>）
 
 **一句话：** 它帮你把"你关注的信息"收进一个仓库，再自动为你建一个**反仓库** —— 存放那些你**没看见、但值得看见**的信息。
 
@@ -92,7 +93,7 @@ Antipode 做了两件事，而且是对称的：
 ## 5. 快速开始
 
 ```bash
-git clone https://github.com/ciqiongovo/antipode.git
+git clone https://github.com/Techathon2026/antipode.git
 cd antipode
 
 # Python 依赖
