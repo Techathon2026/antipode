@@ -1,0 +1,29 @@
+# 统一换行符，避免 Windows / macOS 协作时满屏 diff
+* text=auto eol=lf
+
+# 明确声明为文本的脚本
+*.py   text eol=lf
+*.js   text eol=lf
+*.ts   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+*.sql  text eol=lf
+*.sh   text eol=lf
+
+# 二进制文件不做换行转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.pdf  binary
+*.pptx binary
+*.docx binary
+*.xlsx binary
+*.mp4  binary
+*.zip  binary
+*.woff binary
+*.woff2 binary
