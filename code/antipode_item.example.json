@@ -1,0 +1,29 @@
+{
+  "id": "anti-gh-issue-482-1",
+  "for_vault_item": "gh-issue-482",
+  "issue_id": "microservices_vs_monolith",
+  "counter_type": "counter_evidence",
+  "takes_side": "单体",
+  "url": "https://github.com/example-org/payment-service/issues/1207",
+  "title": "上了微服务之后，排障时间翻了三倍",
+  "summary": "作者记录了拆分后的运维代价：一个下单请求要跨七个服务，线上定位问题只能逐个排查，平均排障时间从二十分钟涨到一小时以上；对十来人的团队来说这笔交换不划算。",
+  "raw_excerpt": "拆分半年后我们发现，一个下单请求要跨七个服务，排障时间翻了三倍。出问题的时候你根本不知道是哪一环，只能从天往下一个一个看日志。对我们这种十来人的团队，这笔交换不划算。",
+  "evidence_span": "一个下单请求要跨七个服务，排障时间翻了三倍",
+  "opposition_score": 0.91,
+  "argument_score": null,
+  "gate": {
+    "accepted": true,
+    "checked": [
+      "source_url_present",
+      "evidence_verified",
+      "has_argument_structure",
+      "opposition_above_threshold"
+    ]
+  },
+  "found_by": {
+    "source": "github_search",
+    "query": "monolith 单体 回迁 运维成本 in:body",
+    "candidate_id": "example-org/payment-service#1207",
+    "retrieved_at": "2026-10-17T10:13:40+08:00"
+  }
+}

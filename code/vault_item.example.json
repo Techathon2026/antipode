@@ -1,0 +1,15 @@
+{
+  "id": "gh-issue-482",
+  "source": "github",
+  "source_type": "issue",
+  "url": "https://github.com/example-org/order-service/issues/482",
+  "title": "我们把单体拆成微服务，两年后的复盘",
+  "summary": "作者复盘了单体到微服务的迁移：拆出七个服务后各小组可以独立发布、新人上手更快，作者的结论是这次迁移值得做。",
+  "raw_excerpt": "我们把下单链路拆成七个服务之后，发布节奏确实快了很多，每个小组可以自己决定什么时候上线，不用再等一个大版本。新人也不再需要先读懂整个仓库。过程当然很痛苦，但两年下来我的结论是：这次迁移是值得的。",
+  "fetched_at": "2026-10-17T10:12:00+08:00",
+  "interest_score": 0.86,
+  "tags": ["microservices", "architecture", "refactoring"],
+  "issue_id": "microservices_vs_monolith",
+  "supports": "微服务",
+  "lang": "zh"
+}
