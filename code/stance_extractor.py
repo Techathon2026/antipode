@@ -768,12 +768,22 @@ def evaluate(gold_path: str) -> dict[str, Any]:
     side 取值: "a" | "b" | "neutral" | "undetermined"
 
     返回指标:
-      side_accuracy      —— 立场判准的比例 (核心指标)
+      side_accuracy      —— 立场判准的比例(严格 4 分类, 核心指标)
+      effective_accuracy —— 只看期望值为 a/b 的样本(真正决定仓库/反仓库放得对不对)
+      exclusion_accuracy —— 只看期望值为 neutral/undetermined 的样本
+                            (真正决定"该丢的有没有被丢掉")
       issue_accuracy     —— 议题对齐准确率
       evidence_pass_rate —— 证据校验通过率 (幻觉预警, <95% 说明模型在编证据)
       invented_issue_rate—— 自创议题率 (应为 0)
+
+    为什么要有 effective / exclusion 两个分项:
+      neutral 与 undetermined 在下游 gate() 里都返回 reject, 产品行为完全相同。
+      所以把二者混淆对产品零影响, 却会让严格 4 分类指标虚低。
+      拆开报, 才能分清"模型真的判错了"和"只是两个等价标签之间摇摆"。
     """
     total = side_ok = issue_ok = 0
+    eff_total = eff_ok = 0      # 期望值落在 a/b
+    exc_total = exc_ok = 0      # 期望值落在 neutral/undetermined
     agg = ExtractStats()
     failures: list[str] = []
 
@@ -787,9 +797,16 @@ def evaluate(gold_path: str) -> dict[str, Any]:
             _accumulate(agg, st)
 
             exp_issue, exp_side = item["issue"], item["side"]
+            is_effective = exp_side in ("a", "b")
+            is_excluded = exp_side in (NEUTRAL, UNDETERMINED)
 
             if not preds:
                 failures.append(f"L{lineno} 未抽到立场 | 期望 {exp_side}/{exp_issue}")
+                if is_effective:
+                    eff_total += 1
+                elif is_excluded:
+                    exc_total += 1
+                    exc_ok += 1   # 没抽到 = 没进任何仓库, 排除判断正确
                 continue
 
             top = max(preds, key=lambda s: s.confidence)
@@ -797,6 +814,14 @@ def evaluate(gold_path: str) -> dict[str, Any]:
             got_side = got_issue and top.side == exp_side
             issue_ok += int(got_issue)
             side_ok += int(got_side)
+
+            if is_effective:
+                eff_total += 1
+                eff_ok += int(got_side)
+            elif is_excluded:
+                exc_total += 1
+                # 排除判断正确 = 在期望议题上没有被判成 a/b 站队
+                exc_ok += int(not (got_issue and top.side in ("a", "b")))
 
             if not (got_issue and got_side):
                 failures.append(
@@ -807,6 +832,10 @@ def evaluate(gold_path: str) -> dict[str, Any]:
     return {
         "total": float(total),
         "side_accuracy": side_ok / total if total else 0.0,
+        "effective_accuracy": eff_ok / eff_total if eff_total else 0.0,
+        "effective_total": float(eff_total),
+        "exclusion_accuracy": exc_ok / exc_total if exc_total else 0.0,
+        "exclusion_total": float(exc_total),
         "issue_accuracy": issue_ok / total if total else 0.0,
         "evidence_pass_rate": evidence_pass_rate(agg),
         "invented_issue_rate": (agg.invented_issue / agg.raw_items) if agg.raw_items else 0.0,
@@ -931,12 +960,20 @@ def _cli() -> None:
             print("⚠️  当前是【离线假模型】(--mock), 下面这些数字没有参考价值。")
             print("    它只是规则桩, 用来验证流水线是否跑通。真正评测请去掉 --mock。")
             print("-" * 50)
-        print(f"样本数             {int(metrics['total'])}")
-        print(f"模型调用次数       {int(metrics['api_calls'])}")
-        print(f"立场准确率         {metrics['side_accuracy']:.1%}   (目标 > 80%)")
-        print(f"议题对齐准确率     {metrics['issue_accuracy']:.1%}   (目标 > 90%)")
-        print(f"证据校验通过率     {metrics['evidence_pass_rate']:.1%}   (目标 > 95%, 低于说明模型在编证据)")
-        print(f"自创议题率         {metrics['invented_issue_rate']:.1%}   (目标 0%)")
+        print(f"样本数              {int(metrics['total'])}")
+        print(f"模型调用次数        {int(metrics['api_calls'])}")
+        print(f"立场准确率(4分类)   {metrics['side_accuracy']:.1%}   (目标 > 80%)")
+        print(
+            f"  ├ 有效立场准确率   {metrics['effective_accuracy']:.1%}   "
+            f"(期望 a/b 的 {int(metrics['effective_total'])} 条, 决定仓库/反仓库放得对不对)"
+        )
+        print(
+            f"  └ 排除判定准确率   {metrics['exclusion_accuracy']:.1%}   "
+            f"(期望 neutral/undetermined 的 {int(metrics['exclusion_total'])} 条, 决定该丢的有没有丢掉)"
+        )
+        print(f"议题对齐准确率      {metrics['issue_accuracy']:.1%}   (目标 > 90%)")
+        print(f"证据校验通过率      {metrics['evidence_pass_rate']:.1%}   (目标 > 95%, 低于说明模型在编证据)")
+        print(f"自创议题率          {metrics['invented_issue_rate']:.1%}   (目标 0%)")
         if metrics["failures"]:
             print("\n未通过样本:")
             for line in metrics["failures"][:25]:
