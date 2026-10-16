@@ -1,18 +1,41 @@
-{"text": "我们把单体拆成微服务之后,部署频率从每月一次提升到每天十次,团队可以独立发布,这是巨大的收益。", "expected_polarity": "pro", "expected_issue": "microservices_vs_monolith"}
-{"text": "我们去年上了微服务,结果光是链路追踪就搭了三个月,一个下单请求要跨七个服务,排障时间翻了三倍。", "expected_polarity": "con", "expected_issue": "microservices_vs_monolith"}
-{"text": "微服务真是太棒了——我们花了两周才让一个健康检查正常工作。", "expected_polarity": "con", "expected_issue": "microservices_vs_monolith"}
-{"text": "关于微服务,Martin Fowler 认为它适合复杂系统,而 Simon Brown 则认为大多数团队并不需要它。", "expected_polarity": "undetermined", "expected_issue": "microservices_vs_monolith"}
-{"text": "微服务和单体各有优劣,选择取决于团队规模和系统复杂度。", "expected_polarity": "neutral", "expected_issue": "microservices_vs_monolith"}
-{"text": "五个人的团队就别碰微服务了,光是运维就能把你们拖垮。", "expected_polarity": "con", "expected_issue": "microservices_vs_monolith"}
-{"text": "拆成微服务之后,每个小组终于可以自己决定技术栈,不用再等别人合并代码。", "expected_polarity": "pro", "expected_issue": "microservices_vs_monolith"}
-{"text": "我坚持写测试先行,虽然慢一点,但每次重构都有底气。", "expected_polarity": "pro", "expected_issue": "tdd_necessity"}
-{"text": "TDD 听起来很美,但我们的业务需求一天变三次,先写测试纯属浪费时间。", "expected_polarity": "con", "expected_issue": "tdd_necessity"}
-{"text": "有人觉得 TDD 能提升质量,也有人认为它拖慢交付,这事儿一直没有定论。", "expected_polarity": "neutral", "expected_issue": "tdd_necessity"}
-{"text": "所有人都挤在一个仓库里,改一行前端代码要跑完整套后端测试,提交队列永远排着。", "expected_polarity": "con", "expected_issue": "monorepo_vs_multirepo"}
-{"text": "单仓之后,跨项目的重构只需要一个 PR,依赖版本再也不会对不上了。", "expected_polarity": "pro", "expected_issue": "monorepo_vs_multirepo"}
-{"text": "我们团队现在全用 Vue,组合式 API 写起来比 React 的 hooks 更直观。", "expected_polarity": "pro", "expected_issue": "react_vs_vue"}
-{"text": "选 REST 就对了,GraphQL 那套 schema 维护成本我们扛不住。", "expected_polarity": "pro", "expected_issue": "rest_vs_graphql"}
-{"text": "GraphQL 让我们前端一次拿到全部数据,再也不用为了一个字段加新接口。", "expected_polarity": "pro", "expected_issue": "rest_vs_graphql"}
-{"text": "自从上了 ORM,一个复杂查询生成的 SQL 慢得离谱,最后还是回去手写。", "expected_polarity": "con", "expected_issue": "orm_or_raw_sql"}
-{"text": "TypeScript 的 strict 模式一开始很痛苦,但上线前就拦掉了大量空值 bug。", "expected_polarity": "pro", "expected_issue": "typescript_strictness"}
-{"text": "我们只是在讨论 TypeScript 严格模式的历史,没有评价它好不好。", "expected_polarity": "neutral", "expected_issue": "typescript_strictness"}
+{"text": "我们把单体拆成微服务之后, 部署频率从每月一次提升到每天十次, 团队可以独立发布, 这是巨大的收益。", "issue": "microservices_vs_monolith", "side": "a"}
+{"text": "我们去年上了微服务, 结果光是链路追踪就搭了三个月, 一个下单请求要跨七个服务, 排障时间翻了三倍。", "issue": "microservices_vs_monolith", "side": "b"}
+{"text": "微服务真是太棒了——我们花了两周才让一个健康检查正常工作。", "issue": "microservices_vs_monolith", "side": "b"}
+{"text": "关于微服务, Martin Fowler 认为它适合复杂系统, 而 Simon Brown 则认为大多数团队并不需要它。", "issue": "microservices_vs_monolith", "side": "undetermined"}
+{"text": "微服务和单体各有优劣, 选择取决于团队规模和系统复杂度。", "issue": "microservices_vs_monolith", "side": "neutral"}
+{"text": "五个人的团队就别碰微服务了, 光是运维就能把你们拖垮。", "issue": "microservices_vs_monolith", "side": "b"}
+{"text": "拆成微服务之后, 每个小组终于可以自己决定技术栈, 不用再等别人合并代码。", "issue": "microservices_vs_monolith", "side": "a"}
+{"text": "我坚持写测试先行, 虽然慢一点, 但每次重构都有底气。", "issue": "tdd_necessity", "side": "a"}
+{"text": "TDD 听起来很美, 但我们的业务需求一天变三次, 先写测试纯属浪费时间。", "issue": "tdd_necessity", "side": "b"}
+{"text": "有人觉得 TDD 能提升质量, 也有人认为它拖慢交付, 这事儿一直没有定论。", "issue": "tdd_necessity", "side": "neutral"}
+{"text": "所有人都挤在一个仓库里, 改一行前端代码要跑完整套后端测试, 提交队列永远排着。", "issue": "monorepo_vs_multirepo", "side": "b"}
+{"text": "单仓之后, 跨项目的重构只需要一个 PR, 依赖版本再也不会对不上了。", "issue": "monorepo_vs_multirepo", "side": "a"}
+{"text": "我们团队现在全用 Vue, 组合式 API 写起来比 React 的 hooks 更直观。", "issue": "react_vs_vue", "side": "b"}
+{"text": "React 的生态和招人容易程度是 Vue 比不了的, 我们新项目一律上 React。", "issue": "react_vs_vue", "side": "a"}
+{"text": "Vue 和 React 都挺好用的, 选哪个主要看团队习惯。", "issue": "react_vs_vue", "side": "neutral"}
+{"text": "选 REST 就对了, GraphQL 那套 schema 维护成本我们扛不住。", "issue": "rest_vs_graphql", "side": "a"}
+{"text": "GraphQL 让我们前端一次拿到全部数据, 再也不用为了一个字段去加新接口。", "issue": "rest_vs_graphql", "side": "b"}
+{"text": "自从上了 ORM, 一个复杂查询生成的 SQL 慢得离谱, 最后还是回去手写。", "issue": "orm_or_raw_sql", "side": "b"}
+{"text": "上了 ORM 之后, 普通的增删改查再也不用复制粘贴 SQL 了, 效率高很多。", "issue": "orm_or_raw_sql", "side": "a"}
+{"text": "TypeScript 的 strict 模式一开始很痛苦, 但上线前就拦掉了大量空值 bug。", "issue": "typescript_strictness", "side": "a"}
+{"text": "我们只是在讨论 TypeScript 严格模式的历史, 没有评价它好不好。", "issue": "typescript_strictness", "side": "neutral"}
+{"text": "老板要求开 strict, 结果为了绕开类型检查写了一堆 any, 还不如不开。", "issue": "typescript_strictness", "side": "b"}
+{"text": "业务代码还是得靠面向对象来组织, 一堆纯函数拼起来根本没人看得懂。", "issue": "oop_vs_fp", "side": "a"}
+{"text": "换成函数式之后, 状态全都显式传参, 再也没有那种改一处崩三处的继承链了。", "issue": "oop_vs_fp", "side": "b"}
+{"text": "新人现在全靠 Copilot 补全, 连最基本的调试都不会了, 这是真的在退化。", "issue": "ai_assistant_weakens_dev", "side": "a"}
+{"text": "用了 AI 编程助手之后, 样板代码的时间省了一大半, 我反而有精力去想架构。", "issue": "ai_assistant_weakens_dev", "side": "b"}
+{"text": "试过一阵子 AI 写代码, 感觉好坏参半, 有人说效率翻倍也有人说在埋坑。", "issue": "ai_assistant_weakens_dev", "side": "neutral"}
+{"text": "远程办公一年省下两个小时通勤, 我觉得再也回不去办公室了。", "issue": "remote_vs_onsite", "side": "a"}
+{"text": "远程那两年新人基本没人带, 我还是觉得坐班对团队更好。", "issue": "remote_vs_onsite", "side": "b"}
+{"text": "这个项目换成 Rust 之后, 那一类内存 bug 直接从编译期就消失了。", "issue": "rust_vs_cpp", "side": "a"}
+{"text": "Rust 编译太慢, 生态也还嫩, 我们这种老 C++ 项目不可能迁。", "issue": "rust_vs_cpp", "side": "b"}
+{"text": "我们最后还是从自建机房搬上了云, 弹性扩容这件事省了太多事。", "issue": "cloud_vs_selfhost", "side": "a"}
+{"text": "上云三年账单翻了三倍, 我们算完账决定自己买机器。", "issue": "cloud_vs_selfhost", "side": "b"}
+{"text": "严格 Code Review 拦下了不少设计问题, 我觉得再麻烦也值得。", "issue": "code_review_strictness", "side": "a"}
+{"text": "每个 PR 都要等两个人批, 一个改错别字的改动卡了两天, 这评审太过了。", "issue": "code_review_strictness", "side": "b"}
+{"text": "换成静态类型之后, 重构的时候心里踏实多了, 编译器会帮你兜底。", "issue": "static_vs_dynamic_typing", "side": "a"}
+{"text": "写个脚本还要标类型太啰嗦了, 动态类型几分钟就能跑起来。", "issue": "static_vs_dynamic_typing", "side": "b"}
+{"text": "我坚持用 Tab, 每个人可以按自己习惯设置显示宽度, 无障碍也更好。", "issue": "tabs_vs_spaces", "side": "a"}
+{"text": "团队统一用空格, 再也不会出现换个编辑器缩进就乱掉的情况。", "issue": "tabs_vs_spaces", "side": "b"}
+{"text": "豆腐脑当然要吃甜的, 放咸卤的那是另一道菜了。", "issue": "tofu_pudding", "side": "a"}
+{"text": "豆腐脑不放咸卤根本没法吃, 甜的怎么咽得下去。", "issue": "tofu_pudding", "side": "b"}
