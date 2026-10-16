@@ -136,11 +136,21 @@ python code/stance_extractor.py --eval code/gold_set.jsonl
 | 资源 | 来源 | 用途 | 授权/说明 |
 |---|---|---|---|
 | DeepSeek API | 比赛方提供（TECHATHON 2026 现场资源） | 立场抽取 / 摘要 / LLM as Judge | 现场领取，接口地址以现场通知为准 |
+| 智谱 GLM-4-flash | 智谱开放平台 | 立场抽取 / 议题定位 / 摘要（当前实测所用） | **官方免费档（价格 0）**，需自备 API Key |
 | 影眸 Hyper3D | 比赛方提供（兑换码，需上科大邮箱注册） | 3D 信息星图展示 | 会员兑换码，见现场资源页 |
-| GitHub REST API | GitHub 官方 | 信息源采集 | 个人访问令牌（PAT） |
+| GitHub REST API | GitHub 官方 | 信息源采集；定向检索 | 个人访问令牌（PAT）。⚠️ 实测不适合做观点检索源，详见下方说明 |
+| **Hacker News Algolia API** | Algolia 为 Y Combinator 的 HN 提供 | 英文对立内容检索 | 公开免费接口，**无需鉴权** |
+| **V2EX 检索（经 sov2ex）** | **第三方搜索服务** | 中文对立内容检索（主力源） | ⚠️ **V2EX 官方 API 不提供搜索接口**，故使用第三方服务 sov2ex。特此注明 |
+| **掘金开放搜索接口** | 掘金官方 | 中文对立内容检索（补充源） | 公开接口；实测召回不稳定，仅作补充 |
 | Postgres + pgvector | 开源 | 数据与向量存储 | PostgreSQL License |
 | OpenAI Python SDK | 开源 | 调用各兼容接口 | Apache-2.0 |
-| 议题清单 / 语料池 | **本项目自建** | 立场对齐与评测 | 人工标注 |
+| 议题清单 / 检索词表 / 评测集 | **本项目自建** | 立场对齐、检索、评测 | 人工编写并经实测调优 |
+
+> **关于三个检索源的取舍**（完整实测见 [`docs/反仓库检索_实测记录.md`](docs/反仓库检索_实测记录.md)）：
+> GitHub 的内容结构是"缺陷报告 / 设计草稿"，不是观点文章 —— 实测搜 `monolith` 返回的是
+> 33KB 内核模块化草稿、webpack 构建优化、图片下载进度条。因此反仓库侧**不用 GitHub 做观点检索**，
+> GitHub 仅用于信息采集与定向查询。
+> 观点检索以 **V2EX（经第三方服务 sov2ex）为主力**，Hacker News 补英文，掘金作补充。
 
 ---
 
