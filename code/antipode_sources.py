@@ -78,7 +78,14 @@ SOURCES = ("v2ex", "juejin", "hn", "github")
 #     · HN 保留为**可选源**：只在源内容本身是英文时才该启用（`--sources hn`）
 #   实测依据：V2EX 的 `_source.content` 就是帖子完整正文（500+ 字），
 #   足够支撑证据与摘要；反观 HN 的文章模式只有标题，反而更薄。
-CN_SOURCES = ("v2ex", "juejin")
+# 默认中文源：实测过可用性与内容质量的三个。
+#   v2ex       观点密度最高（讨论区），正文 500+ 字
+#   csdn       正文最厚（body 是全文，2000+ 字），偏教程但覆盖广、对题率高
+#   juejin     召回不稳定，作为补充
+# github_cn 不放进默认：实测它命中的大多是 ruanyf/weekly 的**招聘帖**
+#（"谁在招人？（2026年10月）"是该仓库最活跃板块，提到"微服务"是讲技术栈不是观点）。
+# 适配器保留，需要定向查中文讨论时可用 `--sources github_cn`。
+CN_SOURCES = ("v2ex", "csdn", "juejin")
 EN_SOURCES = ("hn",)
 
 # 检索"对立观点"时的默认源：**只用中文源**（理由见上）。
@@ -423,6 +430,110 @@ def enrich_candidate(c: Candidate, comment_limit: int = 3, max_chars: int = 1400
     )
 
 
+def search_csdn(query: str, limit: int) -> list[Candidate]:
+    """中文补充源：CSDN 博客搜索（官方 so.csdn.net 接口）。
+
+    定位：中文技术博客量最大的平台。内容偏**教程与知识总结**（"微服务的优缺点"），
+    观点密度不如 V2EX，但**覆盖广、对题率高**，作为补充源价值明确。
+
+    ⚠️ Bing 的 `format=rss` 端点实测已失效：搜「微服务 缺点」返回的却是追番网站 —— 
+    返回内容与查询完全无关。别用。
+    """
+    url = "https://so.csdn.net/api/v3/search?" + urllib.parse.urlencode(
+        {"q": query, "t": "blog", "p": 1}
+    )
+    data = _http_json(url)
+
+    out: list[Candidate] = []
+    for r in (data.get("result_vos") or [])[:limit]:
+        raw_title = strip_html(r.get("title") or "")
+        if not raw_title:
+            continue
+        body = strip_html(r.get("body") or r.get("description") or "")
+        link = (r.get("url") or r.get("url_location") or "").split("?")[0]
+        if not link:
+            continue
+        out.append(
+            Candidate(
+                source="csdn",
+                candidate_id=f"csdn-{r.get('id')}",
+                url=link,
+                title=raw_title,
+                text=f"{raw_title}\n\n{body}".strip(),
+                query=query,
+                created_at=str(r.get("create_time") or ""),
+                popularity=int(r.get("view_num") or 0),
+                extra={"author": r.get("author"), "digg": r.get("digg")},
+            )
+        )
+    return out
+
+
+# 中文技术讨论最密集的 GitHub 仓库（issue 评论区就是中文讨论区）。
+# 为什么用 GitHub 做中文源：GitHub API 稳、有配额保障、每条评论都有永久链接，
+# 而且阮一峰周刊的 issue 区是**中文技术讨论密度最高的地方之一**（实测搜「微服务」
+# 命中 95 条评论）。注意：GitHub 整体不适合做观点检索（见文件头），
+# 但**指定中文讨论仓库**是例外 —— 因为那个语料本身就是观点。
+CN_DISCUSSION_REPOS = ("ruanyf/weekly",)
+
+
+def search_github_cn(query: str, limit: int, token: str = "") -> list[Candidate]:
+    """中文源：中文技术讨论仓库里的评论。
+
+    GitHub 搜索 API 只能返回 issue 本身，命中在评论里 —— 所以要再取一次评论，
+    挑出真正包含关键词的那几条。这跟 HN 补评论是同一个思路，但这是**中文**的。
+    """
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    out: list[Candidate] = []
+    for repo in CN_DISCUSSION_REPOS:
+        s_url = "https://api.github.com/search/issues?" + urllib.parse.urlencode(
+            {"q": f"repo:{repo} {query} in:comments", "per_page": 3}
+        )
+        try:
+            data = _http_json(s_url, headers)
+        except RateLimited:
+            raise
+        except Exception as e:
+            print(f"    [!] github_cn 搜索失败：{e}", file=sys.stderr)
+            continue
+
+        for it in (data.get("items") or [])[:2]:
+            num = it.get("number")
+            try:
+                comments = _http_json(
+                    f"https://api.github.com/repos/{repo}/issues/{num}/comments?per_page=50",
+                    headers,
+                )
+            except Exception:
+                continue
+            if not isinstance(comments, list):
+                continue
+            for cm in comments:
+                body = strip_html(cm.get("body") or "")
+                if query.lower() not in body.lower() or len(body) < 60:
+                    continue
+                out.append(
+                    Candidate(
+                        source="github_cn",
+                        candidate_id=f"ghc-{cm.get('id')}",
+                        url=cm.get("html_url") or it.get("html_url") or "",
+                        title=it.get("title") or "",
+                        text=body,
+                        query=query,
+                        created_at=(cm.get("created_at") or "")[:19],
+                        popularity=int((cm.get("reactions") or {}).get("total_count") or 0),
+                        stage="",
+                        extra={"repo": repo, "author": (cm.get("user") or {}).get("login")},
+                    )
+                )
+                if len(out) >= limit:
+                    return out
+    return out
+
+
 def search_juejin(query: str, limit: int) -> list[Candidate]:
     """中文补充源：掘金文章搜索（官方 search_api）。
 
@@ -493,9 +604,11 @@ def search_juejin(query: str, limit: int) -> list[Candidate]:
 
 ADAPTERS = {
     "github": search_github,
+    "github_cn": search_github_cn,
     "hn": search_hn,
     "v2ex": search_v2ex,
     "juejin": search_juejin,
+    "csdn": search_csdn,
 }
 
 # ---------------------------------------------------------------------------
@@ -652,6 +765,8 @@ def collect(
                 try:
                     if source == "github":
                         batch = fn(term, limit, token, "body")
+                    elif source == "github_cn":
+                        batch = fn(term, limit, token)
                     elif source == "hn":
                         batch = fn(term, limit, hn_tags)
                     else:
@@ -986,6 +1101,8 @@ def cmd_raw(args: argparse.Namespace) -> int:
         try:
             if source == "github":
                 batch = fn(args.raw_query, args.limit, token, "raw")
+            elif source == "github_cn":
+                batch = fn(args.raw_query, args.limit, token)
             elif source == "hn":
                 batch = fn(args.raw_query, args.limit, args.hn_tags)
             else:
