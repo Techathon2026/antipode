@@ -448,9 +448,9 @@ def check_http(py: str) -> None:
 # 7. 产物
 # ---------------------------------------------------------------------------
 ARTIFACTS = [
-    ("docs/答辩看板.html", 8_000),
     ("docs/反库演示.html", 8_000),
-    ("deck/对跖点路演/对跖点路演.pptx", 20_000),
+    ("data/vault_zhihu-1017T2051.items.jsonl", 2_000),
+    ("data/antipode_zhihu-1017T2051.jsonl", 1_000),
 ]
 
 

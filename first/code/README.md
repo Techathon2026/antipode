@@ -59,8 +59,7 @@
 | `selftest.py` | 全链路自检 42 项（语法/依赖/词表/离线链路/HTTP/产物），10 秒 |
 | `try_me.py` | 向导版入口：轮询地址栏读到主页 → 建库。配合上级目录的 `试一试.bat` 双击使用 |
 | `run_demo.py` | 三个议题一次跑完（离线演示） |
-| `make_demo_page.py` | 生成 `docs/反库演示.html`（双栏、单文件、断网可用） |
-| `make_defense_page.py` | 生成 `docs/答辩看板.html`（数字直接读实测产物，不手抄） |
+| `make_demo_page.py` | 生成 `docs/反库演示.html`（双栏、单文件、断网可用）—— 写界面时可当视觉参照 |
 
 ## 7. 数据与配置
 
@@ -71,7 +70,6 @@
 | `requirements.txt` | 可选依赖（核心链路只用标准库） |
 | `antipode_item.example.json` / `vault.example.json` / `vault_item.example.json` | 字段样例 |
 | `cookies.example.json` / `label_map.example.json` | Cookie 串与批量标签文件的格式样例 |
-| `check_api_key.js` | 小工具：验证密钥能用（不参与链路） |
 
 ---
 

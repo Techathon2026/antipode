@@ -160,7 +160,6 @@ python code/run_vault.py --vault <队友的库>.json --limit 3   # ③ 拿真实
 | `code/selftest.py` | 全链路自检 | 随时可跑 |
 | `data/` | 库与反库样例（JSONL） | 换成真实库 |
 | `docs/` | 设计与实测文档 | 参考，尤其接口契约 |
-| `deck/` | 5 分钟路演 PPT + 讲稿 | 演示用 |
 
 ---
 
