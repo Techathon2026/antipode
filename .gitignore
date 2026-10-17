@@ -93,8 +93,5 @@ first/.profiles/
 # 「我的信息平台」运行时状态（用户自己的平台列表，不该进仓库）
 first/data/platforms.json
 first/data/urls_*.txt
-first/HANDOFF/data/platforms.json
-first/HANDOFF/data/urls_*.txt
-first/HANDOFF/code/cookies.json
-first/HANDOFF/.profiles/
+first/code/cookies.json
 first/HANDOFF/.try_me.log

@@ -29,17 +29,18 @@
 ## 三十秒验收
 
 ```bash
-python first/code/selftest.py        # 22 项，10 秒，不联网、不花钱
+python first/code/selftest.py        # 42 项，10 秒，不联网、不花钱
+python first/code/quickstart.py      # 一条命令起后端，用真实产物种好平台，浏览器就能看
 ```
 
 > 命令**两种写法都支持**：从仓库根跑 `python first/code/selftest.py`，
 > 或进目录跑 `cd first && python code/selftest.py` —— 脚本不依赖当前工作目录。
 
 ```
-✅ 16 个 .py 语法正确           ✅ 模块级只用标准库（零依赖）
+✅ 23 个 .py 语法正确           ✅ 模块级只用标准库（零依赖）
 ✅ 16 个议题两侧都配了词         ✅ 离线链路断言全过
 ✅ 平台判定 / 风控识别 / 兜底    ✅ 服务能起、接口按契约返回
-✅ 看板 / 演示页 / PPTX 都在     ✅ 全部 22 项通过 —— 可以演示了
+✅ 看板 / 演示页 / PPTX 都在     ✅ 全部 42 项通过 —— 可以演示了
 ```
 
 ---
@@ -48,10 +49,11 @@ python first/code/selftest.py        # 22 项，10 秒，不联网、不花钱
 
 | | |
 |---|---|
+| **入口** | [`first/AGENTS.md`](first/AGENTS.md) —— 给接手的人 / 编码 agent 的一页指令（60 秒上手、接口速查、铁律、不要做的事） |
 | **采集** | `code/collect_account.py` —— 账号 + 网址 → 库（GitHub 走 API，其它走浏览器） |
-| **引擎** | `code/` —— 零第三方依赖，Python 3.10+ 直接跑（仅"浏览器采集"需要 websockets） |
-| **接口** | `python code/server.py` → `POST /antipode`，只监听本机 |
-| **数据** | `data/` —— 库与反库样例（JSONL），可直接换真实库 |
+| **引擎** | `code/` —— 零第三方依赖，Python 3.9+ 直接跑（浏览器采集也只靠标准库 + CDP） |
+| **接口** | `python code/app_api.py`（桌面应用：平台/库/开关）与 `python code/server.py`（单条 `POST /antipode`），都只监听本机 |
+| **数据** | `data/` —— **真跑出来的**库与反库（知乎 10 条 / 16 条反信息，GitHub 5 条），可直接当界面 mock |
 | **文档** | `docs/` —— 接口契约、流水线说明、实测记录、操作手册、答辩看板 |
 | **演示** | `docs/反库演示.html`（双击就开、断网可用）、`docs/答辩看板.html`、`deck/` 路演 PPT |
 

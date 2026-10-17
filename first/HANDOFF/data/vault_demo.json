@@ -1,9 +1,0 @@
-{
-  "vault_id": "demo-vault",
-  "topic": "技术选型与工作方式",
-  "owner": "队友的库（模拟）",
-  "antipode_enabled": true,
-  "counter_types": ["opposing_view"],
-  "item_count": 9,
-  "note": "批量编排演示用。条目在 data/vault_demo.items.jsonl。把 antipode_enabled 改成 false 可以现场演示『这个库不开反推荐』。"
-}
