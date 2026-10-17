@@ -58,10 +58,13 @@ Antipode 做了两件事，而且是对称的：
 
 这是防幻觉唯一可靠的方式，也是答辩时最该强调的技术原则。
 
-**防杠精化三道闸门（缺一不可）：**
+**防杠精化四道闸门 + 一道议题守卫：**
 1. 必须有**论证结构**（没有"前提 → 结论"的一律丢弃）
-2. 必须有**可验证出处**（没有 URL 的一律丢弃）
+2. 必须有**可验证出处**（没有 URL 的一律丢弃）—— 且证据必须是候选原文的**真实子串**
 3. 对立度必须达阈值
+4. 观点性复检（教程 / 源码解析不是"反面观点"）
+5. **议题守卫**：字面命中但讨论的不是这场争论的，直接拦
+   （「过度依赖辅助驾驶」不是「反对 AI 编程助手」，「自建 CDN」不是「自建 vs 上云」）
 
 > 反仓库排序里，`对立度` 只占 40%，`论证质量` 同样占 40%。
 > 用评分机制强制"不要抬杠，要讲理"。
@@ -77,14 +80,23 @@ Antipode 做了两件事，而且是对称的：
 │   ├── 比赛资源与提交要求.md          # TECHATHON 2026 规则速查
 │   ├── 融合信息软件_技术方案.md       # 主技术方案（数据模型 / 算法 / 分期）
 │   ├── 融合信息软件_技术清单.md       # 五层技术栈与选型
+│   ├── 接口契约_仓库到反仓库.md       # 库 / 条目 / 反库条目 三层字段（给队友）
+│   ├── 反仓库流水线_模块说明.md       # 流水线七个模块的机制与实测数字
+│   ├── 反仓库检索_实测记录.md         # 各检索源实测结论、议题可检索性地图
 │   ├── 立场抽取_实施指南.md          # P0 关键模块实施细节
 │   ├── 快速上手_操作手册.md          # 环境配置逐步操作
 │   └── explorations/              # 早期探索记录（保留设计思路）
-├── code/                          # 代码
-│   ├── stance_extractor.py        # 立场抽取模块（含证据校验闸门）
-│   ├── gold_set.jsonl             # 立场抽取评测集
-│   ├── requirements.txt
-│   └── .env.example               # 环境变量模板（真实 .env 不入库）
+├── code/                          # 代码（核心链路零第三方依赖）
+│   ├── stance_extractor.py        # 模块 0：立场抽取 + 证据校验闸门
+│   ├── retrieval_terms.py         # 议题 → 检索词表 + 议题守卫（同形异义）
+│   ├── antipode_sources.py        # 模块 1：检索适配器（V2EX / 掘金 / CSDN / GitHub）
+│   ├── passage_selector.py        # 模块 2：立场段落粗筛（省 token）
+│   ├── model_adapter.py           # 模型适配层（三种后端，模型无关）
+│   ├── antipode_engine.py         # 引擎：库条目 → 反库条目（含漏斗报告）
+│   ├── run_vault.py               # 批量编排：一个库 → 一批反库条目
+│   ├── run_demo.py                # 演示：三个议题一次跑完
+│   └── gold_set.jsonl             # 立场抽取评测集
+├── data/                          # 库与反库的样例数据（JSONL）
 └── .gitignore
 ```
 
@@ -96,7 +108,7 @@ Antipode 做了两件事，而且是对称的：
 git clone https://github.com/Techathon2026/antipode.git
 cd antipode
 
-# Python 依赖
+# 依赖（核心链路只用标准库，这一步只是为了 .env 解析与可选 SDK）
 python -m pip install -r code/requirements.txt
 
 # 配置密钥（真实密钥只写在 .env 里，绝不要提交）
@@ -104,15 +116,19 @@ cp code/.env.example code/.env
 
 # 自检（不花钱，不调用 API）
 python code/stance_extractor.py --selftest
+python code/antipode_engine.py --selftest        # 反引擎离线自检
 
-# 真实抽取一条
-python code/stance_extractor.py --text "我们去年上了微服务，排障时间翻了三倍。"
+# 一个库 → 一批反库条目（先 --dry-run 看会怎么处理）
+python code/run_vault.py --vault data/vault_demo.json --dry-run
+python code/run_vault.py --vault data/vault_demo.json
 
-# 跑评测集
-python code/stance_extractor.py --eval code/gold_set.jsonl
+# 单条跑 + 看漏斗
+python code/antipode_engine.py --json code/vault_item.example.json --origin v2ex
 ```
 
-详细步骤见 [`docs/快速上手_操作手册.md`](docs/快速上手_操作手册.md)。
+详细步骤见 [`docs/快速上手_操作手册.md`](docs/快速上手_操作手册.md)，
+流水线的机制与实测数字见 [`docs/反仓库流水线_模块说明.md`](docs/反仓库流水线_模块说明.md)。
+
 
 ---
 

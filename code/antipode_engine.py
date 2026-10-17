@@ -145,6 +145,7 @@ class Funnel:
     stance_calls: int = 0
     want_side: str = ""
     candidates: int = 0
+    off_topic: int = 0       # 议题守卫拦下的条数（形近异义，未送检）
     per_stage: dict = field(default_factory=dict)
     per_source: dict = field(default_factory=dict)
     prescreened: int = 0
@@ -178,6 +179,8 @@ class Funnel:
         L.append(f"② 取对立面     {self.want_side}")
         L.append(f"③ 检索候选     {self.candidates} 条   "
                  f"档位 {self.per_stage}   来源 {self.per_source}")
+        if self.off_topic:
+            L.append(f"   议题守卫     拦下 {self.off_topic} 条（字面命中但讨论的不是这场争论）")
         L.append(f"   粗筛送检     {self.prescreened} 条（按沾题 + 立场信号排序）")
         if self.enriched:
             L.append(f"   补论证素材   {self.enriched} 条（HN 文章只有标题 → 取其讨论评论）")
@@ -393,6 +396,24 @@ def build_antipode_items(
     QUESTION_TITLE = re.compile(r"[?？]\s*$")
     is_q = lambda c: bool(QUESTION_TITLE.search(c.title or ""))
     ok = lambda c: is_usable_candidate(c, anchors)
+
+    # 议题守卫：拦"字面命中但根本不是这场争论"的内容（同形异义）。
+    # ⚠️ 实测逼出来的 —— 整库跑出来的四条脏数据是同一个病：
+    #    「过度依赖辅助驾驶」被当成「反对 AI 编程助手」（命中"过度依赖"）
+    #    「自建 Nginx CDN」被当成「反对上云」（命中"自建"）
+    #    「Python 鸭子类型」被当成「支持动态类型」（命中 duck typing）
+    # 模型没判错，是候选进错了场子。这类错误交给规则拦：确定性、零调用成本、可解释。
+    from retrieval_terms import is_off_topic
+    def _off(c) -> bool:
+        return is_off_topic(issue_id, c.text, c.title or "")
+    guarded = [c for c in cands if _off(c)]
+    f.off_topic = len(guarded)
+    if guarded:
+        cands = [c for c in cands if not _off(c)]
+        if verbose:
+            print(f"  [守卫] 拦下 {f.off_topic} 条形近异义（不是这场争论）："
+                  + " / ".join(c.title[:20] for c in guarded[:3]), file=sys.stderr)
+
     to_verify = ([c for c in cands if ok(c) and not is_q(c)]
                  + [c for c in cands if ok(c) and is_q(c)]
                  + [c for c in cands if not ok(c)])[:max_verify]

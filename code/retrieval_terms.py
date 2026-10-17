@@ -59,6 +59,8 @@
     · 检索词最多 2 个词（超过会被自检拦下）
 """
 
+import re
+
 TERMS_VERSION = "v2-中英双语"
 
 # 这两个议题不做检索：一个是纯梗（Tab vs 空格），一个是生活偏好（豆腐脑）。
@@ -199,3 +201,113 @@ ISSUE_TERMS: dict[str, dict] = {
         "retrieval": "none",
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# 议题守卫 —— 拦"字面命中但根本不是这场争论"的内容
+# ---------------------------------------------------------------------------
+#
+# 【为什么需要这一层】
+# 2026-10-17 整库跑下来的四条脏数据，全是同一个病：**同形异义**。
+#
+#   议题 ai_assistant_weakens_dev（AI 助手 vs 开发者能力）
+#     捞回「翻车了，过度依赖辅助驾驶导致的一次事故记录」
+#     ← 命中的是"过度依赖"这个词。辅助驾驶 ≠ AI 编程助手。
+#
+#   议题 cloud_vs_selfhost（上云 vs 自建）
+#     捞回「使用 Nginx 自建 CDN，关于回源问题」
+#     ← 命中的是"自建"。这是运维教程，不是"自建还是上云"的取舍。
+#
+#   议题 static_vs_dynamic_typing（静态类型 vs 动态类型）
+#     捞回「Python 里的"鸭子类型"（Duck Typing）」
+#     ← 命中的是 side_b 的检索词 duck typing。这是入门教程。
+#
+# 这三个都不是模型判错，而是**候选本身就不是一场争论的内容**。
+# 让模型去判"这条是否反对 X"，它当然能找到理由 —— 问题在候选进错了场子。
+#
+# 【为什么用规则而不是让模型再答一次】
+# 让模型多答一个问题 = 每条候选多一次调用（送检 8 条 → 多 8 次/条目）。
+# 而同形异义恰恰是**规则最擅长**的一类：它的定义就是"某个词在这个议题下不代表那个意思"。
+# 词表只要跟着实测记录长，规则就够用；模型的判断力留给"立场"这件真正需要判断的事。
+#
+# 【为什么不改 prompt 加一条"议题对齐"规则】
+# SYSTEM_PROMPT 一动，立场抽取的评测基线（41 条 gold_set，90.2%）就作废，必须重跑。
+# 在只剩一天多的时候，用一个**确定性、可解释、零成本**的闸门更划算。
+# 词表调优本就是这套系统里唯一"像训练"的动作 —— 产出是数据与规则，不是权重。
+#
+# 结构：
+#   TOPIC_GUARD[issue_id] = {
+#       "off_topic": r"...",   # 命中它 → 疑似形近异义
+#       "unless":    r"...",   # 但正文里出现这些词 → 确实在讲本议题，放行
+#       "why":       "...",    # 记录这条是为了拦哪个真实案例（答辩要用）
+#   }
+#
+# 判据：命中 off_topic 且未命中 unless → 判"跑错议题"，不入反库。
+# 宁可漏（少一条反信息，用户看到的是空），也不能错（点开是辅助驾驶，产品就废了）。
+
+TOPIC_GUARD: dict[str, dict] = {
+    "ai_assistant_weakens_dev": {
+        "off_topic": r"辅助驾驶|自动驾驶|智驾|无人驾驶|无人机|AI\s*绘画|AI\s*作图"
+                     r"|AIGC|智能音箱|客服机器人|推荐算法|短视频|外卖|导航",
+        "unless": r"编程|写代码|代码|开发者|程序员|工程师|Copilot|IDE|重构|调试|bug|仓库",
+        "why": "「过度依赖」是通用词，会被辅助驾驶、智能音箱、推荐算法等内容命中",
+    },
+    "cloud_vs_selfhost": {
+        "off_topic": r"自建\s*(CDN|图床|网盘|NAS|博客|DNS|邮件|节点|梯子|机场)"
+                     r"|自建\s*CDN|软路由|群晖|折腾\s*NAS",
+        "unless": r"云服务器|云主机|上云|云账单|云成本|机房|IDC|服务器成本|迁到云",
+        "why": "「自建 CDN / 自建博客」是运维教程，不是「自建还是上云」的取舍",
+    },
+    "static_vs_dynamic_typing": {
+        "off_topic": r"鸭子类型|duck\s*typing|pythonic",
+        "unless": r"静态类型|动态类型|类型系统|type\s*safety|type\s*hint|TypeScript|类型检查",
+        "why": "「鸭子类型」多数是 Python 入门教程，不是类型系统之争",
+    },
+    "react_vs_vue": {
+        "off_topic": r"源码解析|从零实现|手写\s*(mini|react|vue)|实现原理|编译原理",
+        "unless": r"选型|放弃|迁移|转向|换掉|不如|缺点|后悔|替代",
+        "why": "框架源码解析/手写实现教程不含立场，《vue3 源码解析》是已知误判点",
+    },
+}
+
+_GUARD_CACHE: dict[str, tuple] = {}
+
+
+def _guard_re(issue_id: str) -> tuple:
+    if issue_id not in _GUARD_CACHE:
+        g = TOPIC_GUARD.get(issue_id)
+        if not g:
+            _GUARD_CACHE[issue_id] = (None, None)
+        else:
+            _GUARD_CACHE[issue_id] = (
+                re.compile(g["off_topic"], re.I) if g.get("off_topic") else None,
+                re.compile(g["unless"], re.I) if g.get("unless") else None,
+            )
+    return _GUARD_CACHE[issue_id]
+
+
+def is_off_topic(issue_id: str, text: str, title: str = "") -> bool:
+    """这条内容是不是"字面命中但根本不是这场争论"。True = 该拦。
+
+    两级判断，顺序很重要：
+      ① **标题级**：标题里出现 off_topic 且没有任何 unless 词 → 直接拦。
+         标题宣告了这篇文章在谈什么，它比正文更有决定性。
+         （实测教训：「Python 里的"鸭子类型"」正文里顺嘴提了一句"类型检查"，
+           只看正文就会放行 —— 必须让标题说了算。）
+      ② **正文级**：正文命中 off_topic 且没有 unless 词 → 拦。
+         这是兜底，拦标题正常、但内容是另一种东西的情况。
+    """
+    off, unless = _guard_re(issue_id)
+    if off is None:
+        return False
+    if title and off.search(title):
+        if not (unless is not None and unless.search(title)):
+            return True
+    if text and off.search(text):
+        return not (unless is not None and unless.search(text))
+    return False
+
+
+def guard_why(issue_id: str) -> str:
+    return (TOPIC_GUARD.get(issue_id) or {}).get("why", "")
+
