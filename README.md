@@ -108,6 +108,7 @@ Antipode 做了两件事，而且是对称的：
 │   ├── make_defense_page.py       # 生成答辩看板（数字直接读实测产物）
 │   ├── run_demo.py                # 演示：三个议题一次跑完
 │   ├── make_demo_page.py          # 生成双栏演示页 docs/反库演示.html
+│   ├── selftest.py                # 全链路自检（语法/依赖/词表/链路/接口/产物）
 │   └── gold_set.jsonl             # 立场抽取评测集
 ├── data/                          # 库与反库的样例数据（JSONL）
 └── .gitignore
@@ -127,7 +128,9 @@ python -m pip install -r code/requirements.txt
 # 配置密钥（真实密钥只写在 .env 里，绝不要提交）
 cp code/.env.example code/.env
 
-# 自检（不花钱，不调用 API）
+# 自检（不花钱、不调用 API，约 10 秒）
+python code/selftest.py                          # 全链路：语法/依赖/词表/离线链路/HTTP/产物
+python code/selftest.py --live                   # 额外真跑一条 URL（要网络 + 额度，1–2 分钟）
 python code/stance_extractor.py --selftest
 python code/antipode_engine.py --selftest        # 反引擎离线自检
 

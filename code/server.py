@@ -158,9 +158,14 @@ def run_one(item: dict, vault: dict | None, opts: dict) -> dict:
         return {
             "ok": True,
             "item_id": str(item.get("id") or ""),
+            # 这四项与 funnel 里的同名值一致，提到顶层是为了前端不必挖漏斗
+            "issue_id": f.issue_id,
+            "vault_supports": f.vault_supports,
+            "want_side": f.want_side,
             "outcome": outcome,
             "why": OUTCOME_LABEL.get(outcome, outcome),
             "antipode": produced,
+            "antipode_count": len(produced),
             "funnel": funnel_dict(f),
             "elapsed_ms": int((time.time() - t0) * 1000),
         }
@@ -169,18 +174,22 @@ def run_one(item: dict, vault: dict | None, opts: dict) -> dict:
         return {
             "ok": True,
             "item_id": str(item.get("id") or ""),
+            "issue_id": "", "vault_supports": "", "want_side": "",
             "outcome": _outcome_of(str(e)),
             "why": str(e)[:300],
             "antipode": [],
+            "antipode_count": 0,
             "elapsed_ms": int((time.time() - t0) * 1000),
         }
     except Exception as e:                                     # noqa: BLE001
         return {
             "ok": False,
             "item_id": str(item.get("id") or ""),
+            "issue_id": "", "vault_supports": "", "want_side": "",
             "outcome": "error",
             "why": f"{type(e).__name__}: {str(e)[:240]}",
             "antipode": [],
+            "antipode_count": 0,
             "elapsed_ms": int((time.time() - t0) * 1000),
         }
 

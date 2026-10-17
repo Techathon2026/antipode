@@ -125,10 +125,18 @@ class RateLimited(RuntimeError):
 # ---------------------------------------------------------------------------
 # 2. HTTP 小工具（stdlib）
 # ---------------------------------------------------------------------------
+def _urlopen(req, timeout: float):
+    """同 vault_fetch._urlopen：ANTIPODE_NO_PROXY=1 时绕开系统代理。"""
+    if os.environ.get("ANTIPODE_NO_PROXY", "").strip().lower() in ("1", "true", "yes"):
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        return opener.open(req, timeout=timeout)
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
 def _http_json(url: str, headers: dict | None = None) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **(headers or {})})
     try:
-        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+        with _urlopen(req, HTTP_TIMEOUT) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
             return json.loads(raw)
     except urllib.error.HTTPError as e:
@@ -567,7 +575,7 @@ def search_juejin(query: str, limit: int) -> list[Candidate]:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+        with _urlopen(req, HTTP_TIMEOUT) as resp:
             data = json.loads(resp.read().decode("utf-8", errors="replace"))
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"HTTP {e.code}") from e

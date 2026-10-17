@@ -185,6 +185,18 @@ def cookie_for(url: str) -> str:
     return ""
 
 
+def _urlopen(req, timeout: float):
+    """打开请求。环境变量 ANTIPODE_NO_PROXY=1 时绕开系统代理。
+
+    本机常挂着 Clash 一类的代理，它会把部分站点（如 v2ex）挡成 502，
+    而换台机器就正常 —— 演示现场最容易被误判成"代码坏了"。
+    """
+    if os.environ.get("ANTIPODE_NO_PROXY", "").strip().lower() in ("1", "true", "yes"):
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        return opener.open(req, timeout=timeout)
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
 def _http(url: str, timeout: float) -> tuple[int, bytes, str, dict]:
     headers = {
         "User-Agent": USER_AGENT,
@@ -196,7 +208,7 @@ def _http(url: str, timeout: float) -> tuple[int, bytes, str, dict]:
     if ck:
         headers["Cookie"] = ck
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _urlopen(req, timeout) as resp:
         raw = resp.read()
         enc = (resp.headers.get("Content-Encoding") or "").lower()
         if "gzip" in enc:
