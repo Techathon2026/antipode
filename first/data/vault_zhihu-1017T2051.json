@@ -1,0 +1,29 @@
+{
+  "vault_id": "zhihu-1017T2051",
+  "topic": "知乎 · 搜索「微服务」",
+  "antipode_enabled": true,
+  "counter_types": [
+    "opposing_view"
+  ],
+  "created_at": "2026-10-17T20:51:40+08:00",
+  "built_by": "collect_zhihu.py",
+  "source": "account:zhihu",
+  "account": {
+    "platform": "zhihu",
+    "url": "https://www.zhihu.com/",
+    "scope": "search",
+    "query": "微服务",
+    "issue": "microservices_vs_monolith",
+    "auth": "browser"
+  },
+  "item_count": 10,
+  "antipode_eligible_count": 9,
+  "kinds": {
+    "opinion": 9,
+    "tutorial": 1
+  },
+  "junk": {
+    "dropped": 0,
+    "reasons": {}
+  }
+}

@@ -728,7 +728,9 @@ def collect(
     if entry is None:
         raise KeyError(f"术语表里没有议题 {issue_id}")
     if entry.get("retrieval") == "none":
-        raise ValueError(f"{issue_id} 被标记为不做检索（人工预置演示）")
+        # 用 RuntimeError 而不是 ValueError：这是"这条不该做反推荐"，
+        # 批量编排会把它记成 no_issue 而不是"运行出错"（后者看着像程序 bug）。
+        raise RuntimeError(f"{issue_id} 被标记为不做检索（人工预置演示）—— 不做反推荐")
 
     terms = list(entry["sides"].get(want_side) or [])
     if tier in ("topic", "both"):
@@ -1050,7 +1052,7 @@ def cmd_probe(args: argparse.Namespace) -> int:
             anchors=anchors,
             min_usable=args.min_usable,
         )
-    except (KeyError, ValueError) as e:
+    except (KeyError, ValueError, RuntimeError) as e:
         print(f"❌ {e}", file=sys.stderr)
         return 2
 

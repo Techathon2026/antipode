@@ -57,7 +57,7 @@ from antipode_sources import (  # noqa: E402
     collect, is_usable_candidate, keyword_hit, has_stance_signal, Candidate,
     RETRIEVAL_SOURCES,
 )
-from retrieval_terms import ISSUE_TERMS  # noqa: E402
+from retrieval_terms import ISSUE_TERMS, NO_RETRIEVAL, topic_coverage  # noqa: E402
 from model_adapter import (  # noqa: E402
     OpenAICompatBackend, BatchJsonlBackend, LocalFileBackend, MockBackend, Judgment,
 )
@@ -256,21 +256,11 @@ def _topic_coverage(text: str) -> dict[str, int]:
     用来治"议题串味"：模型从 16 个议题里挑一个，偶尔会挑到一个**原文几乎没提**的
     （实测：一篇讲远程办公的文章被判成「AI 助手有益」，只因为文中提了一句 AI 工具，
     接着反推"AI 助手有害"，反库里就出现了一篇 AI 依赖研究 —— 与用户看的文章毫无关系）。
+
+    实现在 retrieval_terms.topic_coverage，采集层（build_vault）也用同一份，
+    免得两边判定不一致：库里标 ★、引擎里却判"不沾边"。
     """
-    low = (text or "").lower()
-    if not low:
-        return {}
-    out: dict[str, int] = {}
-    for iid, terms in ISSUE_TERMS.items():
-        if terms.get("retrieval") == "none":
-            continue
-        n = 0
-        for k in terms.get("topics", []):
-            k = str(k).lower().strip()
-            if k:
-                n += low.count(k)
-        out[iid] = n
-    return out
+    return topic_coverage(text)
 
 
 def _norm_url(u: str) -> str:
@@ -479,6 +469,29 @@ def build_antipode_items(
         _cov = _topic_coverage(" ".join(texts))
         _mine = _cov.get(best.issue_id, 0)
         _stronger = [k for k, v in _cov.items() if k != best.issue_id and v >= 2 and v > _mine]
+
+        # ★ 第一道：梗 / 生活偏好类议题不做检索。
+        # 它们（Tab 还是空格、豆腐脑甜咸）的反信息是**人工预置**的演示素材，
+        # 不该由检索产出。实测：一批中文时事被模型硬挑成「豆腐脑甜咸」，
+        # 接着 collect() 直接抛 ValueError，整条记成"运行出错" —— 明明该记成
+        # "这条不适合反推荐"。所以在这里拦，并给出可读原因。
+        if best.issue_id in NO_RETRIEVAL:
+            raise RuntimeError(
+                f"议题「{best.issue_id}」是梗/生活偏好，只做人工预置演示，不做反推荐"
+                " —— 这条不硬凑"
+            )
+
+        # ★ 第二道：16 个议题一个都不沾边 → 不硬凑。
+        # 原来的闸门只在"别的议题更贴题"时才动手（_stronger 非空）。但中文时事
+        # （票房预测、博物馆闭馆、农民工欠薪）往往是**每个议题都 0 命中**：
+        # 此时 _stronger 为空、闸门放行，模型瞎挑的议题就带着一条毫不相干的反信息
+        # 进了反库。这里补上"全都不沾边"这一支。
+        if _mine == 0 and not _stronger:
+            raise RuntimeError(
+                "原文与这批 16 个二元议题都不沾边（关键词命中 0 次）"
+                " —— 没有可对立的议题，不硬凑"
+            )
+
         if _mine == 0 and _stronger:
             # 纠正优于丢弃：模型偶尔会在 16 个议题里挑错一场（实测：一篇讲**远程办公**的文章
             # 被判成「AI 助手有益」，只因为文中提了一句 AI 工具，接着反推出"AI 助手有害"，

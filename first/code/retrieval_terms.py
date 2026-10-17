@@ -67,6 +67,46 @@ TERMS_VERSION = "v2-中英双语"
 # 它们的反信息由人工预置，用来演示 counter_type = 视野缺失(C) 那一类。
 NO_RETRIEVAL = ("tabs_vs_spaces", "tofu_pudding")
 
+
+def topic_coverage(text: str) -> dict[str, int]:
+    """数一遍每个议题的 topic 词在原文里出现了几次。
+
+    存在的理由只有一个：**议题必须在原文里有依据**。模型从 16 个议题里挑一个，
+    偶尔会挑到一个原文根本没提的，接着就反推出与用户看的文章毫无关系的反信息。
+    实测两次（都是这个词表救回来的）：
+      · 一篇讲**远程办公**的文章被判成「AI 助手有益」，只因为文中提了一句 AI 工具；
+      · 一批**中文时事**（票房预测、博物馆闭馆）在 16 个议题里一个都不沾边，
+        模型仍然硬挑了一个 —— 挑中的是「豆腐脑甜咸」，反库里随即出现一篇
+        跟豆腐脑有关的文章配「洛阳博物馆闭馆」。
+    后者是本函数 + 引擎闸门共同拦下的：命中 0 次且没有更贴题的议题 = 不硬凑。
+
+    不计入 NO_RETRIEVAL 的议题：它们的反信息是人工预置的，不该被检索链路选中。
+
+    ⚠️ 英文词必须按**词边界**数，不能用子串。
+    实测踩过：议题 `typescript_strictness` 的关键词里有 "any"，用 `count()` 去数，
+    一篇讲蒙古草原火灾的文章里因为出现了 "company" 而"命中"了 1 次 ——
+    议题依据闸门于是放行，那条被标成 ★。差一个词边界，闸门就形同虚设。
+    """
+    low = (text or "").lower()
+    if not low:
+        return {}
+    out: dict[str, int] = {}
+    for iid, terms in ISSUE_TERMS.items():
+        if terms.get("retrieval") == "none":
+            continue
+        n = 0
+        for k in terms.get("topics", []):
+            k = str(k).lower().strip()
+            if not k:
+                continue
+            if k.isascii():
+                # 纯英文/数字词：按词边界找，避免 any→company 这类假命中
+                n += len(re.findall(r"(?<![a-z0-9])" + re.escape(k) + r"(?![a-z0-9])", low))
+            else:
+                n += low.count(k)
+        out[iid] = n
+    return out
+
 ISSUE_TERMS: dict[str, dict] = {
     "microservices_vs_monolith": {
         "topics": ["微服务", "单体", "microservices", "monolith"],

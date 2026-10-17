@@ -10,7 +10,7 @@
 > **本目录 = 仓库里的 `first/` 单元**，即「反仓库」这一侧，代码 / 数据 / 文档 / 演示材料全部自包含。
 > 下文所有命令都在**本目录内**执行（先 `cd first`）。
 > 要把它和队友那一侧（`second/`）拼起来，看 [`INTEGRATION.md`](INTEGRATION.md)；
-> 想先确认它没坏，跑 `python code/selftest.py`（15 项，10 秒，不联网）。
+> 想先确认它没坏，跑 `python code/selftest.py`（28 项，10 秒，不联网）。
 
 ---
 
@@ -103,6 +103,7 @@ Antipode 做了两件事，而且是对称的：
 ```
 .
 ├── README.md                      # 本文件
+├── 试一试.bat                     # 双击就能试：选平台 → 登录 → 建库（Windows）
 ├── docs/                          # 设计与实施文档
 │   ├── 比赛资源与提交要求.md          # TECHATHON 2026 规则速查
 │   ├── 提交材料_项目说明.md          # 提交清单 01/02：简介 / 成员 / 功能 / 原创声明 / 第三方资源
@@ -116,6 +117,7 @@ Antipode 做了两件事，而且是对称的：
 │   ├── 反仓库检索_实测记录.md         # 各检索源实测结论、议题可检索性地图
 │   ├── 立场抽取_实施指南.md          # P0 关键模块实施细节
 │   ├── 账号采集_说明.md             # 客户给「一个网址 + 账号」怎么读出来（三种认证 / 平台矩阵）
+│   ├── 应用集成_信息平台.md          # 接进桌面应用：左侧「我的信息平台」的接口契约与接线说明
 │   ├── 快速上手_操作手册.md          # 环境配置逐步操作
 │   └── explorations/              # 早期探索记录（保留设计思路）
 ├── deck/对跖点路演/                 # 5 分钟路演 PPT（源文件 + 讲稿）
@@ -123,6 +125,7 @@ Antipode 做了两件事，而且是对称的：
 │   ├── STORY.md / DESIGN.md / 讲稿.md
 │   └── slides/                    # 逐页源文件
 ├── code/                          # 代码（核心链路零第三方依赖）
+│   ├── try_me.py                 # 向导版入口：选平台 → 弹窗登录 → 自动读到主页 → 建库
 │   ├── collect_account.py        # 模块 ⓪-a：账号 + 网址 → 库（GitHub API / 浏览器登录）
 │   ├── browser_cdp.py            # 模块 ⓪-b：极简 CDP（起浏览器 / 执行 JS / 取 Cookie）
 │   ├── build_vault.py            # 模块 ⓪-c：一批链接 → 库（抓正文 / 判立场 / 省流）
@@ -135,6 +138,11 @@ Antipode 做了两件事，而且是对称的：
 │   ├── antipode_engine.py         # 引擎：库条目 → 反库条目（含漏斗报告）
 │   ├── run_vault.py               # 批量编排：一个库 → 一批反库条目
 │   ├── server.py                  # HTTP 接口层：POST /antipode（给前端 / 队友）
+│   ├── app_api.py                 # 桌面应用后端：「我的信息平台」平台/库/开关 + 异步采集
+│   ├── collect_github.py          # 模块 ⓪-d：GitHub 新项目 → README 省流 → 库 + 日报
+│   ├── collect_zhihu.py           # 模块 ⓪-e：知乎（热榜 / 按议题搜索）→ 过滤 → 库
+│   ├── junk_filter.py             # 模块 ⓪-f：广告 / 盐选小说 / 种草软文 / 空壳
+│   ├── summarize.py               # 模块 ⓪-g：中文省流（只客观转述，不替用户选边）
 │   ├── make_defense_page.py       # 生成答辩看板（数字直接读实测产物）
 │   ├── run_demo.py                # 演示：三个议题一次跑完
 │   ├── make_demo_page.py          # 生成双栏演示页 docs/反库演示.html
@@ -147,6 +155,14 @@ Antipode 做了两件事，而且是对称的：
 ---
 
 ## 5. 快速开始
+
+**想用自己的账号试一遍**（不用记链接、不用拼参数）：
+
+> 双击本目录下的 **`试一试.bat`** → 选平台 → 在弹出的窗口里登录 →
+> 走到自己的主页 → 程序自己开始读。
+> 登录态存在 `.profiles/<平台>/`，下次不用重登。详见 [`docs/账号采集_说明.md`](docs/账号采集_说明.md) 第 9 节。
+
+下面的命令版是一样的东西，适合写进脚本、也适合现场投屏：
 
 ```bash
 git clone https://github.com/Techathon2026/antipode.git
@@ -176,6 +192,30 @@ python first/code/collect_account.py \
 
 #    只有一堆链接时（不经账号）
 python first/code/build_vault.py --urls links.txt --vault-id client-a --topic "前端选型"
+
+# ①-b 信息收集：两个「读进来 → 压成中文省流 → 附原文地址」的入口
+#    GitHub 新项目（不需要登录；这是只做采集、不做反推荐的那条线）
+python first/code/collect_github.py --days 7 --limit 10
+#      → first/data/vault_github-new-*.json   （库）
+#      → first/data/digest_github-new-*.md    （给人看的日报，每条带原文链接）
+python first/code/collect_github.py --days 30 --lang python --min-stars 50
+
+#    知乎（必须登录一次；这条线带反推荐）
+python first/code/collect_zhihu.py --limit 10            # 默认热榜（观点密度高）
+python first/code/collect_zhihu.py --scope feed          # 换成首页推荐流
+#      → 先过滤广告 / 盐选小说 / 种草软文 / 空壳（丢掉的连同原因写进 *.junk.jsonl）
+#      → 正文在浏览器会话里取（HTTP 直连知乎会稳定 403，见 docs/账号采集_说明.md）
+#      → 再判「这条值不值得做反推荐」，只有 ★ 的那几条会进反引擎
+python first/code/collect_zhihu.py --antipode            # 建库后直接跑反推荐
+
+#    按议题采集（要反推荐就用这个入口）
+python first/code/collect_zhihu.py --issue microservices_vs_monolith --antipode
+python first/code/collect_zhihu.py --query "远程办公" --antipode
+#      ⚠️ 两条入口的分工，是实测逼出来的，不是设计洁癖：
+#         热榜 / 推荐流 = 综合时事（票房、欠薪、博物馆闭馆），与我们那 16 个
+#         二元议题**一条都不沾边** —— 实测 10/10 被议题依据闸门拦下。
+#         这不是闸门太严，是入口不对：给一条时政新闻找"技术选型的对立面"，
+#         本来就无从下手。所以热榜只做信息收集，要反推荐请按议题采集。
 
 # ② 反推荐：一个库 → 一批反库条目（先 --dry-run 看会怎么处理）
 python first/code/run_vault.py --vault first/data/vault_demo.json --dry-run

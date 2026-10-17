@@ -107,7 +107,12 @@ class Browser:
     ) -> None:
         self.exe = exe or find_browser()
         self.port = port or _free_port()
-        self.profile = profile_dir or tempfile.mkdtemp(prefix="antipode-profile-")
+        # 必须是绝对路径：Chromium 会按自己的进程工作目录解析相对路径，
+        # 解析歪了就落到默认 profile 上 —— 和用户开着的 Edge 撞车，
+        # 启动请求被转给那个实例，我们等的调试端口永远不应答。
+        # 表现就是"浏览器起来了但调试端口没响应"，很难查。防御在这里。
+        self.profile = (os.path.abspath(profile_dir) if profile_dir
+                        else tempfile.mkdtemp(prefix="antipode-profile-"))
         self.headless = headless
         self.keep_open = keep_open
         self.proc: subprocess.Popen | None = None
@@ -116,6 +121,33 @@ class Browser:
 
     # -- 生命周期 ---------------------------------------------------------
     def start(self, timeout: float = 30.0) -> "Browser":
+        """起浏览器，最多试两次。
+
+        为什么要试第二次：上一轮如果没退干净，Edge 会把这次启动**转给那个老实例**
+        （用的是老端口），新进程立刻退出 → 我们轮询的端口永远没人应答。
+        这在实际使用中是偶发的"跑了一次没事、下次打不开"，所以必须自愈：
+        换一个端口再来一次；还是不行才报错，并告诉人怎么处理。
+        """
+        last = ""
+        for attempt in (1, 2):
+            self._launch()
+            try:
+                self._wait_ready(timeout)
+                break
+            except RuntimeError as e:                          # noqa: PERF203
+                last = str(e)
+                self._stop_proc()
+                if attempt == 2:
+                    raise RuntimeError(
+                        f"{last}\n"
+                        "上一次留下的 Edge 窗口可能还没退干净。\n"
+                        "把任务栏里那个多出来的 Edge 窗口全部关掉，再运行一次。"
+                    ) from None
+                self.port = _free_port()
+                time.sleep(1.0)
+        return self
+
+    def _launch(self) -> None:
         args = [
             self.exe,
             f"--remote-debugging-port={self.port}",
@@ -123,15 +155,27 @@ class Browser:
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-popup-blocking",
-            "--disable-features=Translate,MediaRouter",
+            "--disable-features=Translate,MediaRouter,msEdgeWelcomePage",
+            "--no-service-autorun",
+            "--disable-sync",
             "--window-size=1280,900",
         ]
         if self.headless:
             args.append("--headless=new")
         args.append("about:blank")
         self.proc = subprocess.Popen(args, stdout=_DEVNULL, stderr=_DEVNULL)
-        self._wait_ready(timeout)
-        return self
+
+    def _stop_proc(self) -> None:
+        if not (self.proc and self.proc.poll() is None):
+            return
+        try:
+            self.proc.terminate()
+            self.proc.wait(timeout=5)
+        except Exception:                                      # noqa: BLE001
+            try:
+                self.proc.kill()
+            except Exception:                                  # noqa: BLE001
+                pass
 
     def _wait_ready(self, timeout: float) -> None:
         t0 = time.time()
@@ -149,19 +193,25 @@ class Browser:
         raise RuntimeError(f"浏览器起来了但调试端口没响应（{last}）")
 
     def close(self) -> None:
-        """关窗口。keep_open 时不关，方便用户接着看。"""
+        """关窗口。keep_open 时不关，方便用户接着看。
+
+        先用 `Browser.close` 请它**自己退出**，而不是直接 terminate：
+        登录态（Cookies 库）是在正常退出时才落盘的，强杀等于这次登录白登，
+        下次还得重新扫码。顺手也避免残留进程把下一次启动堵死。
+        """
         if self.keep_open:
             return
         try:
-            self._http("/json/close/" + self.target.get("id", ""), method="GET")
+            self._send("Browser.close", timeout=5)
         except Exception:                                      # noqa: BLE001
             pass
+        # 给它一点时间把 profile 写完
         if self.proc and self.proc.poll() is None:
             try:
-                self.proc.terminate()
-                self.proc.wait(timeout=5)
+                self.proc.wait(timeout=8)
             except Exception:                                  # noqa: BLE001
-                self.proc.kill()
+                pass
+        self._stop_proc()
 
     # -- HTTP 端点 -------------------------------------------------------
     def _http(self, path: str, method: str = "GET", timeout: float = 10.0) -> dict | list:
@@ -184,9 +234,68 @@ class Browser:
             self.target = self._http("/json/new?about:blank", method="GET") or {}
         if not self.target.get("webSocketDebuggerUrl"):
             raise RuntimeError("新标签页没拿到调试地址，浏览器版本可能不兼容")
+        # 先激活，再清掉无关标签 —— 顺序反了会有一瞬间没有页面的空窗
+        self.bring_to_front()
+        self._close_others()
         if url and url != "about:blank":
             self.goto(url)
         return self.target
+
+    def bring_to_front(self) -> None:
+        """激活当前标签页，并把窗口从最小化/后台提到前面。
+
+        为什么非做不可：`/json/new` 建出来的是**后台标签页**。不激活的话，
+        用户盯着的是 Edge 启动时那个 about:blank，或者干脆是个被挡在别的
+        窗口后面、最小化了的窗口 —— 表现就是"运行了，但没打开我要的网站"。
+        实测这是最容易被当成 bug 的一处，所以固定做，失败也不影响采集。
+        """
+        try:
+            self._send("Page.bringToFront")
+        except Exception:                                      # noqa: BLE001
+            pass
+        # 再把窗口本身从最小化恢复（只激活标签页不动窗口，用户还是看不见）
+        try:
+            info = self._send("Browser.getWindowForTarget",
+                              {"targetId": self.target.get("id", "")})
+            wid = (info.get("result") or {}).get("windowId")
+            if wid is not None:
+                self._send("Browser.setWindowBounds",
+                           {"windowId": wid, "bounds": {"windowState": "normal"}})
+                # 光恢复还不够：Edge 记着上次的位置尺寸，如果上次接的是副屏、
+                # 那块屏现在不在了，窗口会被恢复到**屏幕外**——进程活着、
+                # 页面也加载了，但人什么都看不到，表现为"按了回车没反应"。
+                # 所以显式把它摆到主屏左上角一块确定的区域。
+                # 注意：windowState 与 left/top 必须分两次下发，一次给会被拒。
+                self._send("Browser.setWindowBounds", {
+                    "windowId": wid,
+                    "bounds": {"left": 80, "top": 60,
+                               "width": 1280, "height": 880},
+                })
+        except Exception:                                      # noqa: BLE001
+            pass
+
+    def _close_others(self) -> None:
+        """关掉除当前页以外的标签。
+
+        来源有两处：启动时那个 about:blank，以及 Edge 恢复的上次会话。
+        留着它们只有一个后果 —— 用户看到一堆标签，不知道哪个才是程序在用的。
+        """
+        try:
+            pages = self._http("/json/list") or []
+        except Exception:                                      # noqa: BLE001
+            return
+        if not isinstance(pages, list):
+            return
+        for p in pages:
+            if p.get("type") != "page":
+                continue
+            tid = p.get("id", "")
+            if not tid or tid == self.target.get("id"):
+                continue
+            try:
+                self._http(f"/json/close/{tid}", method="GET")
+            except Exception:                                  # noqa: BLE001
+                pass
 
     # -- 与页面通信 ------------------------------------------------------
     def _send(self, method: str, params: dict | None = None, timeout: float = 30.0) -> dict:

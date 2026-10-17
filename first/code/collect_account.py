@@ -62,10 +62,27 @@ _ROOT = os.path.dirname(_HERE)
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
-try:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-except Exception:                                              # noqa: BLE001
-    pass
+def _setup_console() -> None:
+    """把 Windows 控制台的输出代码页钉成 UTF-8，再让 Python 用 UTF-8 输出。
+
+    不做这件事的后果：同一份中文在一台机器上正常、在另一台全是乱码 ——
+    控制台代码页可能是 936（GBK）也可能是 65001，Python 的输出编码跟着它走。
+    两边一起钉住，就不用猜了。
+    """
+    if os.name == "nt":
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        except Exception:                                      # noqa: BLE001
+            pass
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:                                      # noqa: BLE001
+            pass
+
+
+_setup_console()
 
 from build_vault import (  # noqa: E402
     _item_id, _now, _norm_url, build_item, make_opts, write_vault,
@@ -228,8 +245,15 @@ _EXTRACT_JS = """
     seen.add(href);
     // 标题通常不在 a 自己身上，往上找一个像"一个条目"的容器
     const box = el.closest('li, article, [class*="item"], [class*="card"], [class*="note"], [class*="feed"], [class*="post"]') || el.parentElement || el;
-    const text = (box.innerText || el.innerText || el.getAttribute('aria-label') || '')
+    let text = (box.innerText || el.innerText || el.getAttribute('aria-label') || '')
                    .replace(/\\s+/g, ' ').trim();
+    // 抖音 / 小红书 / B站 的封面卡：文字节点是空的，标题挂在 img 的 alt 上。
+    // 不兜这一下，视频类内容会全部抽成"无标题"。
+    if (text.length < 8) {
+      const im = box.querySelector('img[alt], img[title]');
+      const alt = im ? (im.getAttribute('alt') || im.getAttribute('title') || '') : '';
+      if (alt.trim()) text = (text + ' ' + alt).replace(/\\s+/g, ' ').trim();
+    }
     out.push({ href, text: text.slice(0, 500) });
   });
   return out.slice(0, MAX);

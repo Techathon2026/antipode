@@ -151,6 +151,7 @@ python code/run_vault.py --vault <队友的库>.json --limit 3   # ③ 拿真实
 | `code/run_vault.py` | 批量编排（断点续跑、体检报告） | 跑批用 |
 | `code/vault_fetch.py` | 从链接取正文 | 不动 |
 | `code/collect_account.py` | **账号 + 网址 → 库**（GitHub API / 浏览器登录） | 换平台时改选择器 |
+| `code/try_me.py` + `试一试.bat` | 同一件事的**向导版**（选平台 → 弹窗登录 → 读地址栏自动建库），产出格式一致 | 只是入口，不需要接 |
 | `code/browser_cdp.py` | 极简 CDP：起浏览器、执行 JS、取 Cookie | 不动 |
 | `code/build_vault.py` | 一批链接 → 库（采集层的下游） | 不动 |
 | `code/stance_extractor.py` | 立场抽取 + 证据校验 | 不动（有评测基线） |

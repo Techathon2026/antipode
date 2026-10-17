@@ -55,6 +55,7 @@ from model_adapter import (  # noqa: E402
     load_label_map,
 )
 from stance_extractor import ISSUE_TAXONOMY, resolve_side, opposite_side  # noqa: E402
+from retrieval_terms import NO_RETRIEVAL  # noqa: E402
 
 CST = timezone(timedelta(hours=8))
 
@@ -219,6 +220,10 @@ def preflight(item: dict) -> str:
         return "error"
     issue_id = str(item.get("issue_id") or "")
     if issue_id and issue_id not in ISSUE_IDS:
+        return "no_issue"
+    # 梗 / 生活偏好类（Tab vs 空格、豆腐脑甜咸）只做人工预置演示，不进检索链路。
+    # 不在这里拦的话，会在 collect() 里抛异常，被记成"运行出错"—— 分类错了。
+    if issue_id in NO_RETRIEVAL:
         return "no_issue"
     supports = str(item.get("supports") or "").strip().lower()
     if supports in ("neutral", "中立", "none", "null"):
@@ -392,6 +397,11 @@ def main() -> int:
                 msg = str(e)
                 r.outcome = ("fetch_failed" if "取不到正文" in msg
                              else "off_issue" if "串味" in msg
+                             # 「议题是梗/生活偏好」「与 16 个议题都不沾边」：
+                             # 这是"这条本来就不该做反推荐"，不是程序出错。
+                             # 实测踩过：ValueError 冒到外层，10 条里 3 条被记成"运行出错"，
+                             # 看着像 bug，其实是模型硬挑了豆腐脑议题。
+                             else "no_issue" if ("不做反推荐" in msg or "不沾边" in msg)
                              else "no_stance" if "未能从库条目" in msg
                              else "neutral" if "对立面" in msg or "中立" in msg
                              else "no_text" if "正文" in msg or "文本" in msg else "error")

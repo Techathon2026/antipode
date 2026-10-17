@@ -62,6 +62,7 @@ from antipode_engine import (  # noqa: E402
 )
 from model_adapter import OpenAICompatBackend  # noqa: E402
 from stance_extractor import extract, extract_long  # noqa: E402
+from retrieval_terms import NO_RETRIEVAL, topic_coverage  # noqa: E402
 from vault_fetch import fetch_article, guess_source  # noqa: E402
 
 CST = timezone(timedelta(hours=8))
@@ -299,6 +300,38 @@ def build_item(url: str, backend, a, prefetched: dict | None = None) -> dict:
         kind = "neutral"
     else:
         kind = "reference"
+
+    # ★ 议题依据：判出的议题必须在原文里真的有依据，否则这个 ★ 就是假的。
+    # 实测：一批中文时事（票房预测、博物馆闭馆、农民工欠薪）被模型硬挑成
+    # 「豆腐脑甜咸」「monorepo vs multirepo」——16 个议题一个都不沾边。
+    # 这种条目即使在库里标了 ★，反库也只能凭空生成。
+    #
+    # 两支护栏：
+    #   ① 判到梗/生活偏好类议题（豆腐脑、Tab vs 空格）→ 一律不标 ★。
+    #      它们的反信息是人工预置的演示素材，不存在"检索出来"这回事。
+    #   ② 判出的议题本身命中 0 次，且没有任何议题命中 ≥2 → 不标 ★。
+    #      阈值取 2 而不是 1：单次命中常常是巧合（"company" 里的 "any"），
+    #      而 0 次意味着连巧合都没有 —— 那才是真的没依据。
+    if kind == "opinion" and stance is not None and stance.issue_id:
+        cov = topic_coverage(text)
+        zero_hit = cov.get(stance.issue_id, 0) == 0
+        weak = (not cov) or max(cov.values(), default=0) < 2
+        if stance.issue_id in NO_RETRIEVAL or (zero_hit and weak):
+            kind = "reference"
+            base["eligibility_reason"] = (
+                f"判出的议题「{stance.issue_id}」在原文里没有依据"
+                f"（命中 {cov.get(stance.issue_id, 0)} 次，全表最高 "
+                f"{max(cov.values(), default=0)} 次）—— 不标 ★，不硬凑")
+            # 把这条站不住的立场从条目上摘掉：留着它，下游会当既成事实用。
+            # 原始判据留在 stance_dropped 里，答辩时能说明"模型判了，规则拦下了"。
+            base["stance_dropped"] = {
+                "issue_id": base.pop("issue_id", ""),
+                "supports": base.pop("supports", ""),
+                "stance_side": base.pop("stance_side", ""),
+                "stance_confidence": base.pop("stance_confidence", 0),
+                "evidence_span": base.pop("evidence_span", ""),
+                "reason": "议题在原文无依据（关键词命中 0）",
+            }
 
     base.update({
         "kind": kind,
