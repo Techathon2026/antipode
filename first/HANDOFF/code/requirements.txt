@@ -1,0 +1,9 @@
+# 依赖安装
+# 命令: pip install -r requirements.txt
+
+openai>=1.30.0
+python-dotenv>=1.0.0
+
+# 可选：只有"用浏览器登录采集"（--browser）才需要。
+# 抓正文 / 判立场 / 反推荐 / HTTP 接口都不需要它。
+websockets>=12.0

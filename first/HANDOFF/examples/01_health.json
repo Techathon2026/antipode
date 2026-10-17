@@ -1,0 +1,38 @@
+{
+  "_说明": "GET /health → HTTP 200",
+  "_请求体": null,
+  "_状态码": 200,
+  "_响应": {
+    "ok": true,
+    "service": "antipode-platforms",
+    "version": "0.1",
+    "platforms": {
+      "github": {
+        "label": "GitHub",
+        "auth": "可选：只读 token（不填会读本机已有凭据）",
+        "antipode": false
+      },
+      "zhihu": {
+        "label": "知乎",
+        "auth": "第一次需要弹窗登录（登录态存在本机，之后不用再登）",
+        "antipode": true
+      },
+      "douyin": {
+        "label": "抖音",
+        "auth": "第一次需要弹窗登录（视频正文短，多数只归档）",
+        "antipode": false
+      },
+      "weibo": {
+        "label": "微博",
+        "auth": "第一次需要弹窗登录",
+        "antipode": false
+      },
+      "url": {
+        "label": "链接",
+        "auth": "不需要登录（公开文章）",
+        "antipode": true
+      }
+    },
+    "notes": "只监听本机；不存密码；登录态不出本地"
+  }
+}

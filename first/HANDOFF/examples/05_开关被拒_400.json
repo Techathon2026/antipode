@@ -1,0 +1,11 @@
+{
+  "_说明": "PATCH /platforms/github-new-1017T2025 → HTTP 400",
+  "_请求体": {
+    "antipode_enabled": true
+  },
+  "_状态码": 400,
+  "_响应": {
+    "ok": false,
+    "error": "GitHub 只做信息收集：仓库没有「对立面」"
+  }
+}

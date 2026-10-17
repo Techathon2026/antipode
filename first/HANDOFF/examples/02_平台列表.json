@@ -1,0 +1,51 @@
+{
+  "_说明": "GET /platforms → HTTP 200",
+  "_请求体": null,
+  "_状态码": 200,
+  "_响应": {
+    "ok": true,
+    "count": 2,
+    "platforms": [
+      {
+        "id": "zhihu-1017T2051",
+        "platform": "zhihu",
+        "label": "知乎 · 微服务",
+        "input": "微服务",
+        "limit": 10,
+        "days": 7,
+        "lang": "",
+        "antipode_enabled": true,
+        "status": "done",
+        "item_count": 10,
+        "eligible_count": 9,
+        "antipode_count": 16,
+        "created_at": "2026-10-17T20:51:00+08:00",
+        "last_run": "2026-10-17T21:01:00+08:00",
+        "last_stage": "完成：10 条信息，9 条可反推荐，16 条反信息",
+        "last_error": "",
+        "last_job": "j-00000000",
+        "antipode_supported": true
+      },
+      {
+        "id": "github-new-1017T2025",
+        "platform": "github",
+        "label": "GitHub · 新项目",
+        "input": "",
+        "limit": 10,
+        "days": 7,
+        "lang": "",
+        "antipode_enabled": false,
+        "status": "done",
+        "item_count": 5,
+        "eligible_count": 0,
+        "antipode_count": 0,
+        "created_at": "2026-10-17T20:51:00+08:00",
+        "last_run": "2026-10-17T21:01:00+08:00",
+        "last_stage": "完成：5 条信息，0 条可反推荐，0 条反信息",
+        "last_error": "",
+        "last_job": "j-00000000",
+        "antipode_supported": false
+      }
+    ]
+  }
+}

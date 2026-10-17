@@ -1,0 +1,33 @@
+{
+  "_说明": "PATCH /platforms/zhihu-1017T2051 → HTTP 200",
+  "_请求体": {
+    "antipode_enabled": true
+  },
+  "_状态码": 200,
+  "_响应": {
+    "ok": true,
+    "platform": {
+      "id": "zhihu-1017T2051",
+      "platform": "zhihu",
+      "label": "知乎 · 微服务",
+      "input": "微服务",
+      "limit": 10,
+      "days": 7,
+      "lang": "",
+      "antipode_enabled": true,
+      "status": "done",
+      "item_count": 10,
+      "eligible_count": 9,
+      "antipode_count": 16,
+      "created_at": "2026-10-17T20:51:00+08:00",
+      "last_run": "2026-10-17T21:01:00+08:00",
+      "last_stage": "完成：10 条信息，9 条可反推荐，16 条反信息",
+      "last_error": "",
+      "last_job": "j-00000000",
+      "antipode_supported": true
+    },
+    "changed": [
+      "antipode_enabled"
+    ]
+  }
+}

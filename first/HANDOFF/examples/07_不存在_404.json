@@ -1,0 +1,9 @@
+{
+  "_说明": "GET /platforms/not-exist → HTTP 404",
+  "_请求体": null,
+  "_状态码": 404,
+  "_响应": {
+    "ok": false,
+    "error": "没有这个平台"
+  }
+}

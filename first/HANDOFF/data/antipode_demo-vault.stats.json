@@ -1,0 +1,183 @@
+{
+  "vault_id": "demo-vault",
+  "vault_topic": "技术选型与工作方式",
+  "ran_at": "2026-10-17T13:22:14+08:00",
+  "mode": "online",
+  "items_total": 9,
+  "items_with_output": 3,
+  "antipode_items": 6,
+  "hit_rate": 0.429,
+  "outcome_distribution": {
+    "produced": 3,
+    "all_rejected": 4,
+    "neutral": 1,
+    "no_issue": 1
+  },
+  "rows": [
+    {
+      "item_id": "demo-ms-1",
+      "title": "我们把单体拆成微服务，两年后的复盘",
+      "issue_id": "microservices_vs_monolith",
+      "supports": "微服务",
+      "want_side": "单体",
+      "outcome": "produced",
+      "produced": 3,
+      "candidates": 16,
+      "prescreened": 8,
+      "passed": 3,
+      "rejected": {
+        "站错边": 2,
+        "无对立性表述": 3,
+        "只有提问，正文无立场": 1
+      },
+      "error": "",
+      "elapsed_s": 48.7
+    },
+    {
+      "item_id": "demo-tdd-1",
+      "title": "坚持 TDD 三年，我的真实体会",
+      "issue_id": "tdd_necessity",
+      "supports": "先写测试",
+      "want_side": "先写实现",
+      "outcome": "all_rejected",
+      "produced": 0,
+      "candidates": 19,
+      "prescreened": 8,
+      "passed": 0,
+      "rejected": {
+        "中立": 4,
+        "判不出": 1,
+        "站错边": 3
+      },
+      "error": "",
+      "elapsed_s": 25.4
+    },
+    {
+      "item_id": "demo-rv-1",
+      "title": "为什么我们最终选了 React",
+      "issue_id": "react_vs_vue",
+      "supports": "React",
+      "want_side": "Vue",
+      "outcome": "produced",
+      "produced": 2,
+      "candidates": 20,
+      "prescreened": 8,
+      "passed": 2,
+      "rejected": {
+        "对立度不足（<0.7）": 1,
+        "站错边": 2,
+        "判不出": 1,
+        "中立": 1,
+        "无对立性表述": 1
+      },
+      "error": "",
+      "elapsed_s": 34.2
+    },
+    {
+      "item_id": "demo-remote-1",
+      "title": "远程三年，我再也不想回办公室了",
+      "issue_id": "remote_vs_onsite",
+      "supports": "远程办公",
+      "want_side": "坐班",
+      "outcome": "all_rejected",
+      "produced": 0,
+      "candidates": 26,
+      "prescreened": 8,
+      "passed": 0,
+      "rejected": {
+        "站错边": 7,
+        "判不出": 1
+      },
+      "error": "",
+      "elapsed_s": 96.9
+    },
+    {
+      "item_id": "demo-ai-1",
+      "title": "用 AI 助手写代码一年，我的效率翻了一倍",
+      "issue_id": "ai_assistant_weakens_dev",
+      "supports": "AI 助手有益",
+      "want_side": "AI 助手有害",
+      "outcome": "produced",
+      "produced": 1,
+      "candidates": 48,
+      "prescreened": 8,
+      "passed": 1,
+      "rejected": {
+        "判不出": 4,
+        "站错边": 2,
+        "中立": 1
+      },
+      "error": "",
+      "elapsed_s": 126.9
+    },
+    {
+      "item_id": "demo-cloud-1",
+      "title": "小团队就别自建机房了，上云的账其实很好算",
+      "issue_id": "cloud_vs_selfhost",
+      "supports": "上云",
+      "want_side": "自建",
+      "outcome": "all_rejected",
+      "produced": 0,
+      "candidates": 17,
+      "prescreened": 8,
+      "passed": 0,
+      "rejected": {
+        "站错边": 5,
+        "无对立性表述": 3
+      },
+      "error": "",
+      "elapsed_s": 42.0
+    },
+    {
+      "item_id": "demo-typing-1",
+      "title": "把 TS 严格模式全开之后，我们修掉了三十个潜在 bug",
+      "issue_id": "static_vs_dynamic_typing",
+      "supports": "静态类型",
+      "want_side": "动态类型",
+      "outcome": "all_rejected",
+      "produced": 0,
+      "candidates": 38,
+      "prescreened": 8,
+      "passed": 0,
+      "rejected": {
+        "教程标题，非观点": 1,
+        "无对立性表述": 1,
+        "站错边": 4,
+        "判不出": 1,
+        "对立度不足（<0.7）": 1
+      },
+      "error": "",
+      "elapsed_s": 81.6
+    },
+    {
+      "item_id": "demo-neutral-1",
+      "title": "微服务和单体到底怎么选？整理了一份对照表",
+      "issue_id": "microservices_vs_monolith",
+      "supports": "neutral",
+      "want_side": "",
+      "outcome": "neutral",
+      "produced": 0,
+      "candidates": 0,
+      "prescreened": 0,
+      "passed": 0,
+      "rejected": {},
+      "error": "",
+      "elapsed_s": 0.0
+    },
+    {
+      "item_id": "demo-unknown-1",
+      "title": "K8s 和直接用虚拟机比，到底强在哪",
+      "issue_id": "k8s_vs_vm",
+      "supports": "直接虚拟机",
+      "want_side": "",
+      "outcome": "no_issue",
+      "produced": 0,
+      "candidates": 0,
+      "prescreened": 0,
+      "passed": 0,
+      "rejected": {},
+      "error": "",
+      "elapsed_s": 0.0
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "_说明": "登录态 Cookie 模板。复制成 cookies.json 后再填，并把 cookies.json 加进 .gitignore（已经在里面了）。",
+  "_怎么拿": "① 用浏览器正常登录该站点 ② F12 → Network → 刷新 → 点任意请求 → 复制 Request Headers 里的 Cookie 整行 ③ 贴到下面对应域名下",
+  "_边界": "只用于读取『用户本来就有权看到』的那篇文章；不做登录、不保存账号密码、不代你发任何内容。",
+  "zhihu.com": "",
+  "mp.weixin.qq.com": "",
+  "www.v2ex.com": "",
+  "_全局兜底": "如果只有一个站点的 Cookie，也可以写成 {\"cookie\": \"k=v; k2=v2\"}"
+}

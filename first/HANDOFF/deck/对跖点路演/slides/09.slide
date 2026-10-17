@@ -1,0 +1,32 @@
+<Slide style={{ width: 1280, height: 720, background: 'linear-gradient(120deg, #14161A 0%, #1D2430 100%)', padding: '0px' }}>
+    <Box style={{ position: 'relative', width: 1280, height: 720, padding: '0px 80px', justifyContent: 'center' }}>
+
+        <Text style={{ fontSize: 13, letterSpacing: 3, color: 'rgba(247,245,240,0.40)', marginBottom: 30 }}>TECHATHON 2026 · ANTIPODE</Text>
+
+        <Text style={{ fontSize: 64, fontWeight: 'bold', color: '#F7F5F0', lineHeight: 1.35 }}>
+            仓库之外，<br />还应该有一层。
+        </Text>
+
+        <Box style={{ width: 64, height: 2, background: '#C2410C', marginTop: 34, marginBottom: 26 }} />
+
+        <Text style={{ fontSize: 22, color: 'rgba(247,245,240,0.62)', lineHeight: 1.7 }}>
+            不是让你看得更多，是让你看见自己<span style={{ color: '#F7F5F0', fontWeight: 'bold' }}>没在看的那一面</span>。
+        </Text>
+
+        <Box style={{ flexDirection: 'row', gap: 34, marginTop: 56 }}>
+            <Text style={{ fontSize: 15, color: 'rgba(247,245,240,0.45)' }}>可选开关</Text>
+            <Text style={{ fontSize: 15, color: 'rgba(247,245,240,0.45)' }}>·</Text>
+            <Text style={{ fontSize: 15, color: 'rgba(247,245,240,0.45)' }}>真实出处</Text>
+            <Text style={{ fontSize: 15, color: 'rgba(247,245,240,0.45)' }}>·</Text>
+            <Text style={{ fontSize: 15, color: 'rgba(247,245,240,0.45)' }}>没有就不给</Text>
+        </Box>
+
+        <Box style={{ position: 'absolute', left: 80, right: 80, bottom: 46, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <Box style={{ flexDirection: 'column' }}>
+                <Text style={{ fontSize: 14, color: 'rgba(247,245,240,0.32)' }}>github.com/Techathon2026/antipode</Text>
+                <Text style={{ fontSize: 14, color: 'rgba(247,245,240,0.32)', marginTop: 4 }}>docs/反库演示.html　·　断网可演示</Text>
+            </Box>
+            <Text style={{ fontSize: 14, color: 'rgba(247,245,240,0.32)' }}>谢谢</Text>
+        </Box>
+    </Box>
+</Slide>

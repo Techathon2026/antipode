@@ -1,0 +1,245 @@
+{
+  "_说明": "GET /platforms/zhihu-1017T2051/items?only=eligible → HTTP 200",
+  "_请求体": null,
+  "_状态码": 200,
+  "_响应": {
+    "ok": true,
+    "count": 9,
+    "items": [
+      {
+        "id": "u-e41d0fcc90",
+        "title": "微服务入门这一篇就够了",
+        "url": "https://zhuanlan.zhihu.com/p/381847108",
+        "summary": "微服务架构通过服务注册中心和配置管理解决单体应用的扩展、容错和协作问题。",
+        "kind": "opinion",
+        "text_chars": 10259,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "从微服务走向单体化",
+            "url": "https://www.v2ex.com/t/1106152",
+            "takes_side": "单体",
+            "summary": "CEO因微服务部署复杂，要求合并服务简化，但单体化后如何应对崩溃。",
+            "opposition_score": 0.95,
+            "evidence_span": "CEO 觉得微服务部署极其繁琐, 什么 nacos 、mq 、redis 都好复杂, 远不如零几年的开发一条龙从后台到前端那么简单。 要求把十来个微服务(用户、订单、后台、网关等）合并成一个。 简化部署，只一台机器搞定",
+            "synthesized": false
+          },
+          {
+            "title": "微服务的缺点",
+            "url": "https://www.v2ex.com/t/645719",
+            "takes_side": "单体",
+            "summary": "微服务虽降低维护成本、增强技术灵活性，但存在网络调用多、运维成本高等问题。",
+            "opposition_score": 0.95,
+            "evidence_span": "微服务的缺点",
+            "synthesized": false
+          }
+        ]
+      },
+      {
+        "id": "u-2c6ddbd347",
+        "title": "微服务正在悄然消亡：这是一件美好的事",
+        "url": "https://zhuanlan.zhihu.com/p/81915733386",
+        "summary": "作者因微服务架构导致效率低下、成本高昂，最终回归单体架构并取得改善。",
+        "kind": "opinion",
+        "text_chars": 2484,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "微服务(Microservices)概述",
+            "url": "https://blog.csdn.net/amber_1/article/details/124681017",
+            "takes_side": "微服务",
+            "summary": "该组件负责服务部署与故障处理，API网关作为客户端入口，实现服务隔离与版本控制，微服务架构比单体架构更灵活。",
+            "opposition_score": 0.95,
+            "evidence_span": "该组件负责在节点上放置服务、识别故障、跨节点重新平衡服务等等。",
+            "synthesized": false
+          }
+        ]
+      },
+      {
+        "id": "u-8fbc054f72",
+        "title": "前两年火热的微服务概念，为什么现在不那么火了？",
+        "url": "https://www.zhihu.com/question/600277145/answer/2020037481458856623",
+        "summary": "因运维成本高、边界难切、依赖复杂，Segment和Amazon Prime Video将微服务改回单体，Netflix成功因规模和平台工程。",
+        "kind": "opinion",
+        "text_chars": 2326,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "微服务(Microservices)概述",
+            "url": "https://blog.csdn.net/amber_1/article/details/124681017",
+            "takes_side": "微服务",
+            "summary": "该组件负责服务部署与故障处理，API网关作为客户端入口，实现服务隔离与版本控制，微服务架构比单体架构更灵活。",
+            "opposition_score": 0.95,
+            "evidence_span": "该组件负责在节点上放置服务、识别故障、跨节点重新平衡服务等等。",
+            "synthesized": false
+          }
+        ]
+      },
+      {
+        "id": "u-c5f45bcdee",
+        "title": "什么是微服务架构？",
+        "url": "https://zhuanlan.zhihu.com/p/345552079",
+        "summary": "微服务架构通过拆分为小而自治的服务解决单体应用的扩展、维护和测试难题。",
+        "kind": "opinion",
+        "text_chars": 7005,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "从微服务走向单体化",
+            "url": "https://www.v2ex.com/t/1106152",
+            "takes_side": "单体",
+            "summary": "CEO因微服务部署复杂，要求合并服务简化，但单体化后如何应对崩溃。",
+            "opposition_score": 0.95,
+            "evidence_span": "CEO 觉得微服务部署极其繁琐, 什么 nacos 、mq 、redis 都好复杂, 远不如零几年的开发一条龙从后台到前端那么简单。 要求把十来个微服务(用户、订单、后台、网关等）合并成一个。 简化部署，只一台机器搞定",
+            "synthesized": false
+          },
+          {
+            "title": "微服务的缺点",
+            "url": "https://www.v2ex.com/t/645719",
+            "takes_side": "单体",
+            "summary": "微服务虽降低维护成本、增强技术灵活性，但存在网络调用多、运维成本高、易瘫痪等问题。",
+            "opposition_score": 0.95,
+            "evidence_span": "微服务的缺点",
+            "synthesized": false
+          }
+        ]
+      },
+      {
+        "id": "u-d6fdbe68e2",
+        "title": "微服务该如何划分？",
+        "url": "https://www.zhihu.com/question/406526550/answer/1965051944759428878",
+        "summary": "领域模型和上下文边界划分是有效的微服务拆分方法。",
+        "kind": "opinion",
+        "text_chars": 8228,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "从微服务走向单体化",
+            "url": "https://www.v2ex.com/t/1106152",
+            "takes_side": "单体",
+            "summary": "CEO因微服务部署复杂，要求合并服务简化，但单体化后如何应对崩溃。",
+            "opposition_score": 0.95,
+            "evidence_span": "CEO 觉得微服务部署极其繁琐, 什么 nacos 、mq 、redis 都好复杂, 远不如零几年的开发一条龙从后台到前端那么简单。 要求把十来个微服务(用户、订单、后台、网关等）合并成一个。 简化部署，只一台机器搞定",
+            "synthesized": false
+          },
+          {
+            "title": "微服务的缺点",
+            "url": "https://www.v2ex.com/t/645719",
+            "takes_side": "单体",
+            "summary": "微服务虽降低维护成本、增强技术灵活性，但存在网络调用多、运维成本高、易瘫痪等问题。",
+            "opposition_score": 0.95,
+            "evidence_span": "微服务的缺点",
+            "synthesized": false
+          }
+        ]
+      },
+      {
+        "id": "u-0164296e99",
+        "title": "放弃了微服务，我们为什么要重回到单体架构？",
+        "url": "https://www.zhihu.com/question/584535202/answer/1945861101129566051",
+        "summary": "微服务因增加复杂性而失宠，单体架构因简化整体架构而卷土重来。",
+        "kind": "opinion",
+        "text_chars": 1805,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "微服务(Microservices)概述",
+            "url": "https://blog.csdn.net/amber_1/article/details/124681017",
+            "takes_side": "微服务",
+            "summary": "该组件负责服务部署与故障处理，API网关作为客户端入口，分离服务与客户端，支持版本控制与横切功能。",
+            "opposition_score": 0.95,
+            "evidence_span": "该组件负责在节点上放置服务、识别故障、跨节点重新平衡服务等等。",
+            "synthesized": false
+          }
+        ]
+      },
+      {
+        "id": "u-760f03da35",
+        "title": "微服务架构是什么？",
+        "url": "https://www.zhihu.com/question/65502802/answer/802678798",
+        "summary": "本文介绍微服务架构演进，从单体应用到应对业务增长拆分为多个服务，但需注意架构设计。",
+        "kind": "opinion",
+        "text_chars": 8664,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "从微服务走向单体化",
+            "url": "https://www.v2ex.com/t/1106152",
+            "takes_side": "单体",
+            "summary": "CEO因微服务部署复杂，要求合并服务简化，但单体化后如何应对崩溃。",
+            "opposition_score": 0.95,
+            "evidence_span": "CEO 觉得微服务部署极其繁琐, 什么 nacos 、mq 、redis 都好复杂, 远不如零几年的开发一条龙从后台到前端那么简单。 要求把十来个微服务(用户、订单、后台、网关等）合并成一个。 简化部署，只一台机器搞定",
+            "synthesized": false
+          },
+          {
+            "title": "微服务的缺点",
+            "url": "https://www.v2ex.com/t/645719",
+            "takes_side": "单体",
+            "summary": "微服务虽降低维护成本、增强技术灵活性，但存在网络调用多、运维成本高、易瘫痪等问题。",
+            "opposition_score": 0.95,
+            "evidence_span": "微服务的缺点",
+            "synthesized": false
+          }
+        ]
+      },
+      {
+        "id": "u-9e786b4c40",
+        "title": "如何给老婆解释什么是微服务",
+        "url": "https://zhuanlan.zhihu.com/p/34287582",
+        "summary": "程序员向妻子解释微服务，用超市拆分比喻其优势。",
+        "kind": "opinion",
+        "text_chars": 4221,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "从微服务走向单体化",
+            "url": "https://www.v2ex.com/t/1106152",
+            "takes_side": "单体",
+            "summary": "CEO因微服务部署复杂，要求合并服务简化，但单体化后如何应对崩溃。",
+            "opposition_score": 0.95,
+            "evidence_span": "CEO 觉得微服务部署极其繁琐, 什么 nacos 、mq 、redis 都好复杂, 远不如零几年的开发一条龙从后台到前端那么简单。 要求把十来个微服务(用户、订单、后台、网关等）合并成一个。 简化部署，只一台机器搞定",
+            "synthesized": false
+          },
+          {
+            "title": "微服务的缺点",
+            "url": "https://www.v2ex.com/t/645719",
+            "takes_side": "单体",
+            "summary": "微服务虽降低维护成本、增强技术灵活性，但存在网络调用多、运维成本高等问题。",
+            "opposition_score": 0.95,
+            "evidence_span": "微服务的缺点",
+            "synthesized": false
+          }
+        ]
+      },
+      {
+        "id": "u-7af6eaed6f",
+        "title": "微服务，害死了多少跟风的初创公司？",
+        "url": "https://zhuanlan.zhihu.com/p/2004187633350383420",
+        "summary": "2026年架构趋势转向模块化单体，因微服务导致成本高、性能差，仅特定需求时拆分。",
+        "kind": "opinion",
+        "text_chars": 1469,
+        "antipode_eligible": true,
+        "antipode_reason": "",
+        "antipode": [
+          {
+            "title": "微服务(Microservices)概述",
+            "url": "https://blog.csdn.net/amber_1/article/details/124681017",
+            "takes_side": "微服务",
+            "summary": "该组件负责服务部署与故障处理，API网关作为客户端入口转发请求并实现服务隔离与版本控制。",
+            "opposition_score": 0.95,
+            "evidence_span": "该组件负责在节点上放置服务、识别故障、跨节点重新平衡服务等等。",
+            "synthesized": false
+          }
+        ]
+      }
+    ]
+  }
+}

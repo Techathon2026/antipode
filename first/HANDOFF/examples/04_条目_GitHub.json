@@ -1,0 +1,66 @@
+{
+  "_说明": "GET /platforms/github-new-1017T2025/items → HTTP 200",
+  "_请求体": null,
+  "_状态码": 200,
+  "_响应": {
+    "ok": true,
+    "count": 5,
+    "items": [
+      {
+        "id": "u-a6e633d8cf",
+        "title": "jhaizhou-ops/d2r-mobile",
+        "url": "https://github.com/jhaizhou-ops/d2r-mobile",
+        "summary": "开源iOS/macOS兼容层，让《暗黑破坏神2：狱火重生》在iPhone、iPad和Mac上原生运行，支持触控、60fps，需自带游戏文件。",
+        "kind": "repo",
+        "text_chars": 36024,
+        "antipode_eligible": false,
+        "antipode_reason": "代码仓库没有观点立场，不参与反推荐",
+        "antipode": []
+      },
+      {
+        "id": "u-a1097dcd46",
+        "title": "onehumanbeing/esp32-iphone-agent",
+        "url": "https://github.com/onehumanbeing/esp32-iphone-agent",
+        "summary": "用7美元ESP32控制iPhone，无需电脑或越狱，支持AirPlay屏幕镜像和USB HID鼠标键盘，配合OpenAI兼容视觉模型完成任务。",
+        "kind": "repo",
+        "text_chars": 10903,
+        "antipode_eligible": false,
+        "antipode_reason": "代码仓库没有观点立场，不参与反推荐",
+        "antipode": []
+      },
+      {
+        "id": "u-097403387c",
+        "title": "Arekejoker/qwen21-nsfw-pose-skill",
+        "url": "https://github.com/Arekejoker/qwen21-nsfw-pose-skill",
+        "summary": "Qwen-Image 2.1 本地 NSFW/姿势出图配方，含作者级提示词、NSFW LoRA、136 姿势库和 VNCCS 人偶控制，适用于 Claude Code / Codex / Cursor / OpenClaw。",
+        "kind": "repo",
+        "text_chars": 6077,
+        "antipode_eligible": false,
+        "antipode_reason": "代码仓库没有观点立场，不参与反推荐",
+        "antipode": []
+      },
+      {
+        "id": "u-2411506596",
+        "title": "liseami/CCBaga",
+        "url": "https://github.com/liseami/CCBaga",
+        "summary": "CCBaga是跨平台工具，用于管理Claude身份和浏览器指纹，适合在国外使用。",
+        "kind": "repo",
+        "text_chars": 19735,
+        "antipode_eligible": false,
+        "antipode_reason": "代码仓库没有观点立场，不参与反推荐",
+        "antipode": []
+      },
+      {
+        "id": "u-c98ecbc1e2",
+        "title": "HeyPuter/everything",
+        "url": "https://github.com/HeyPuter/everything",
+        "summary": "项目重新构建并开源世界软件，提供免费替代品，采用MIT许可。",
+        "kind": "repo",
+        "text_chars": 27658,
+        "antipode_eligible": false,
+        "antipode_reason": "代码仓库没有观点立场，不参与反推荐",
+        "antipode": []
+      }
+    ]
+  }
+}
