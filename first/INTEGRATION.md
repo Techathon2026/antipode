@@ -9,17 +9,22 @@
 ## 1. 边界在哪
 
 ```
-second/（仓库这一侧，队友）                     first/（反仓库这一侧，本目录）
-─────────────────────────────                ──────────────────────────────
-采集 → 判兴趣 → 概括 → 建库                    判立场 → 推对立面 → 检索 → 六道闸门 → 写反库
-        │                                              │
-        └────────── vault item（至少要 url）──────────▶ │
-                                                       │
-        ◀───────────── antipode item（必有真实 URL）────┘
+first/（本目录，两段都在这里）                      second/（队友）
+──────────────────────────────────                ─────────────────
+①  链接 / 账号 → 抓正文 → 判立场 → 省流 → 建库
+                     │
+                     ▼
+②          库条目 → 推对立面 → 检索 → 六道闸门 → 写反库       兴趣筛选 / 分类模型
+                     │
+                     └── vault item（至少要 url）可以来自 second/
+                     └── antipode item（必有真实 URL）交回拼接层
 ```
 
-一句话划清：**「找什么」归 second/，「找反面」归 first/**。
-first/ 不抓取、不判断用户兴趣、不做信息流 —— 它只处理已经进了库的东西。
+一句话划清：**「把信息收进库」和「给库里的东西找反面」归 first/；「判断用户对什么感兴趣」归 second/**。
+
+变化说明：早前采集归队友，现在归我们 —— 客户给的是"一个网址 + 账号"，
+必须自己登进去读，所以 `collect_account.py` / `browser_cdp.py` 放在这一侧。
+如果队友那一侧已经有库，直接用第 2 节的三种接法喂进来，两段互不影响。
 
 ---
 
@@ -145,6 +150,9 @@ python code/run_vault.py --vault <队友的库>.json --limit 3   # ③ 拿真实
 | `code/server.py` | HTTP 接口层 | 直接起服务 |
 | `code/run_vault.py` | 批量编排（断点续跑、体检报告） | 跑批用 |
 | `code/vault_fetch.py` | 从链接取正文 | 不动 |
+| `code/collect_account.py` | **账号 + 网址 → 库**（GitHub API / 浏览器登录） | 换平台时改选择器 |
+| `code/browser_cdp.py` | 极简 CDP：起浏览器、执行 JS、取 Cookie | 不动 |
+| `code/build_vault.py` | 一批链接 → 库（采集层的下游） | 不动 |
 | `code/stance_extractor.py` | 立场抽取 + 证据校验 | 不动（有评测基线） |
 | `code/retrieval_terms.py` | 议题 → 检索词 / 议题守卫 | 加议题时改这里 |
 | `code/antipode_sources.py` | 检索适配器（V2EX / 掘金 / CSDN / GitHub） | 加检索源时改这里 |

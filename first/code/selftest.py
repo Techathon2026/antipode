@@ -4,13 +4,14 @@
     python code/selftest.py           # 不联网、不调用模型，约 10 秒
     python code/selftest.py --live    # 额外真跑一条 URL（会花钱、要网络）
 
-查六件事：
+查七件事：
   1. 语法      每个 .py 能不能编译
   2. 依赖      有没有偷偷引入第三方包（项目承诺零依赖）
   3. 议题表    16 个二元议题是否都配了词、都能推出对立面
   4. 离线链路  engine.selftest()：库条目 → 反库条目 的十几项断言
-  5. HTTP      /health、/issues、坏请求是否按契约返回
-  6. 产物      看板 / 演示页 / PPTX 在不在，是否比数据旧
+  5. 采集      账号/链接 → 库：平台判定、选择器、浏览器、兜底逻辑
+  6. HTTP      /health、/issues、坏请求是否按契约返回
+  7. 产物      看板 / 演示页 / PPTX 在不在，是否比数据旧
 
 退出码 0 = 全通过；1 = 有失败项。
 """
@@ -154,7 +155,64 @@ def check_engine() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 5. HTTP 接口
+# 5. 采集层（账号 / 链接 → 库）
+# ---------------------------------------------------------------------------
+def check_collect() -> None:
+    import build_vault as bv
+    import collect_account as ca
+
+    # 平台判定：域名 → 平台，错了会拿错选择器，一条都抽不到
+    cases = {
+        "https://www.douyin.com/user/MS4w": "douyin",
+        "https://weibo.com/u/123": "weibo",
+        "https://github.com/ciqiongovo": "github",
+        "https://space.bilibili.com/1": "bilibili",
+        "https://blog.example.com/x": "generic",
+    }
+    wrong = [u for u, want in cases.items() if ca.detect_platform(u) != want]
+    add(not wrong, "平台判定（抖音/微博/GitHub/B站/其它）",
+        "、".join(wrong) if wrong else f"{len(cases)}/{len(cases)}")
+
+    # 每个平台都要有专用选择器，否则全靠兜底，噪声会很大
+    need = ("douyin", "weibo", "github", "bilibili", "generic")
+    miss = [k for k in need if k not in ca.CONTENT_SELECTOR]
+    add(not miss, "主要平台都有内容选择器", "、".join(miss) if miss else f"{len(ca.CONTENT_SELECTOR)} 个")
+
+    # 风控识别：被拦时要能说清"是验证码，不是代码坏了"
+    blocked = ca._block_reason("请完成安全验证后继续")
+    clean = ca._block_reason("这是一篇正常的文章")
+    add(bool(blocked) and not clean, "能识别平台风控页（验证码/异常流量）",
+        f"{blocked or '未识别'} / 正常页{'误报' if clean else '不误报'}")
+
+    # 浏览器：本机有没有可用的 Chromium
+    try:
+        from browser_cdp import find_browser, has_websockets
+        exe = find_browser()
+        add(bool(exe), "找到可用浏览器（Edge/Chrome）", os.path.basename(exe))
+        has_ws = has_websockets()
+        add(True if has_ws else None,
+            "浏览器采集依赖 websockets",
+            "已装" if has_ws else "未装：只有 --browser 这条路受影响")
+    except Exception as e:                                     # noqa: BLE001
+        add(False, "找到可用浏览器（Edge/Chrome）", f"{type(e).__name__}: {e}")
+
+    # 列表页片段兜底：抓不到正文时，条目不能整个丢掉
+    long_text = "这是一段已经从列表页拿到的正文。" * 30
+    it = bv.build_item("https://example.invalid/x", None,
+                       bv.make_opts(no_model=True), prefetched={"title": "示例", "text": long_text})
+    ok = it.get("fetch_method") == "list_page" and not it.get("error") and it.get("title") == "示例"
+    add(ok, "列表页片段能直接当正文（不重复抓取）",
+        f"{it.get('fetch_method')} · {it.get('text_chars')} 字")
+
+    # 只有标题、没有正文时：要标出来，但不能当"抓到了"
+    it2 = bv.build_item("https://example.invalid/y", None,
+                        bv.make_opts(no_model=True), prefetched={"title": "只有标题", "text": ""})
+    add(it2.get("kind") in ("unreachable", "too_short") or bool(it2.get("fetch_error")),
+        "只有标题时如实标记，不伪装成成功", it2.get("kind", ""))
+
+
+# ---------------------------------------------------------------------------
+# 6. HTTP 接口
 # ---------------------------------------------------------------------------
 def check_http(py: str) -> None:
     import socket
@@ -203,7 +261,7 @@ def check_http(py: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 6. 产物
+# 7. 产物
 # ---------------------------------------------------------------------------
 ARTIFACTS = [
     ("docs/答辩看板.html", 8_000),
@@ -229,7 +287,7 @@ def check_artifacts() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 7. 可选：真跑一条
+# 8. 可选：真跑一条
 # ---------------------------------------------------------------------------
 LIVE_URL = "https://blog.csdn.net/fudaihb/article/details/136061101"
 
@@ -271,10 +329,11 @@ def main() -> int:
     section("2. 依赖");       check_deps()
     section("3. 议题表");     check_taxonomy()
     section("4. 离线链路");   check_engine()
-    section("5. HTTP 接口");  check_http(py)
-    section("6. 产物");       check_artifacts()
+    section("5. 采集层");     check_collect()
+    section("6. HTTP 接口");  check_http(py)
+    section("7. 产物");       check_artifacts()
     if a.live:
-        section("7. 真跑");   check_live(py)
+        section("8. 真跑");   check_live(py)
 
     failed = [n for ok, n, _ in results if ok is False]
     total = len([1 for ok, _, _ in results if ok is not None])

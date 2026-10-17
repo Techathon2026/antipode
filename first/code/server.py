@@ -77,6 +77,7 @@ from model_adapter import (                                       # noqa: E402
 )
 from stance_extractor import ISSUE_TAXONOMY                       # noqa: E402
 from run_vault import OUTCOME_LABEL, classify, _normalize_items    # noqa: E402
+from build_vault import build_item, dedupe as dedupe_urls, make_opts  # noqa: E402
 
 SERVICE = "antipode-engine"
 VERSION = "0.3"
@@ -194,6 +195,53 @@ def run_one(item: dict, vault: dict | None, opts: dict) -> dict:
         }
 
 
+def run_vault_build(body: dict, opts: dict) -> dict:
+    """客户给的链接 → 一批库条目（抓正文 / 判立场 / 写省流）。
+
+    只读服务：结果在响应里返回，**不写文件**（要落盘用 build_vault.py CLI）。
+    """
+    t0 = time.time()
+    raw = body.get("urls")
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        raw = []
+    if body.get("url"):
+        raw.append(body["url"])
+
+    urls = [str(u).strip() for u in raw if str(u or "").strip()]
+    if not urls:
+        return {"ok": False, "error": "至少要给一个 url（urls 数组或 url 字段）"}
+
+    max_items = max(1, min(int(body.get("max_items") or 10), 20))
+    urls = dedupe_urls(urls)[:max_items]
+
+    no_model = bool(body.get("no_model"))
+    o = make_opts(no_model=no_model, max_chars=int(body.get("max_chars") or 6000))
+
+    items = []
+    for u in urls:
+        try:
+            items.append(build_item(u, None if no_model else opts["backend"], o))
+        except Exception as e:                                 # noqa: BLE001
+            items.append({"url": u, "error": f"{type(e).__name__}: {str(e)[:160]}",
+                          "kind": "error", "antipode_eligible": False})
+
+    ok_items = [i for i in items if not i.get("error")]
+    slim = [{k: v for k, v in i.items() if k != "full_text"} for i in items]
+    return {
+        "ok": True,
+        "vault_id": str(body.get("vault_id") or "adhoc"),
+        "requested": len(urls),
+        "built": len(ok_items),
+        "failed": len(urls) - len(ok_items),
+        "eligible": sum(1 for i in items if i.get("antipode_eligible")),
+        "note": "full_text 没在这里返回（体量大）；要用它跑反推荐请走 build_vault.py 落盘",
+        "items": slim,
+        "elapsed_ms": int((time.time() - t0) * 1000),
+    }
+
+
 def _outcome_of(msg: str) -> str:
     if "取不到正文" in msg:
         return "fetch_failed"
@@ -274,13 +322,14 @@ class Handler(BaseHTTPRequestHandler):
                              "issues": issue_catalog()})
         elif path == "/":
             self._send(200, {"ok": True, "service": SERVICE, "version": VERSION,
-                             "endpoints": ["/health", "/issues", "/antipode", "/antipode/batch"]})
+                             "endpoints": ["/health", "/issues", "/vault",
+                                           "/antipode", "/antipode/batch"]})
         else:
             self._send(404, {"ok": False, "error": f"没有这个接口：{path}"})
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path.rstrip("/")
-        if path not in ("/antipode", "/antipode/batch"):
+        if path not in ("/antipode", "/antipode/batch", "/vault"):
             self._send(404, {"ok": False, "error": f"没有这个接口：{path}"})
             return
         try:
@@ -293,6 +342,10 @@ class Handler(BaseHTTPRequestHandler):
             opts = self._opts()
         except Exception as e:                                  # noqa: BLE001
             self._send(400, {"ok": False, "error": f"参数不合法：{e}"})
+            return
+
+        if path == "/vault":
+            self._send(200, run_vault_build(body, opts))
             return
 
         if path == "/antipode":
@@ -340,6 +393,7 @@ def main() -> int:
     print(f"反仓库引擎已启动  http://{args.host}:{args.port}")
     print(f"  GET  /health        健康检查")
     print(f"  GET  /issues        16 个议题")
+    print(f"  POST /vault         客户给的链接 → 库条目（抓正文 / 判立场 / 写省流）")
     print(f"  POST /antipode      一条库条目 → 反库条目")
     print(f"  POST /antipode/batch 一批库条目")
     print("Ctrl-C 退出")

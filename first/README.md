@@ -28,6 +28,11 @@ Antipode 做了两件事，而且是对称的：
 | 让你**读得完** | 让你**看得见盲区** |
 | 排序：契合度 × 时间 | 排序：对立度 × 论证质量 |
 
+**入口也做完了**：客户不会给你一堆整理好的链接，他给的是一个主页网址和账号
+（抖音 / 微博 / GitHub）。所以第一段是"登进去、把他账号里的内容读出来、判出立场"，
+第二段才是"给每一条找反面"。两段都能单独跑，接口在
+[`INTEGRATION.md`](INTEGRATION.md)。
+
 ---
 
 ## 2. 核心概念：`相反` 不是一种东西，是三种
@@ -46,16 +51,32 @@ Antipode 做了两件事，而且是对称的：
 
 ## 3. 它是怎么工作的
 
+**现在真正跑通的是这两段**（都有可复现的实测数字）：
+
+```
+①  客户给「一个主页网址 + 账号」            ②  一个库
+         │                                       │
+    登录：三种方式，密码不经过我们的代码           判立场 → 推对立面 → 检索
+    （GitHub token / Cookie / 浏览器窗口）          → 六道闸门 → 写反库
+         ▼                                       ▼
+    抓正文 · 判立场 · 写省流 ──→ 建库 ──→ 反库条目（必有真实 URL + 原文证据）
+```
+
+**完整形态**（这个架构能长成什么样，不是现状）：
+
 ```
 用户一句话  →  授权信息源  →  双仓库
    │
-   ├─ 采集层：GitHub / 邮件(IMAP) / RSS … 全部转成同一个文档 Schema
+   ├─ 采集层：账号主页 / GitHub / 邮件(IMAP) / RSS … 全部转成同一个文档 Schema
    │
    ├─ 智能层：① 主题+立场抽取  ② 生成对立假设  ③ 检索真实来源  ④ 验证打分
    │
    └─ 仓库 ← 契合度排序       反仓库 ← 对立度 × 论证质量 排序
                                   └─ 每条都带「回现场」深链接
 ```
+
+采集怎么做的、哪个平台稳哪个平台要人过验证码，见
+[`docs/账号采集_说明.md`](docs/账号采集_说明.md)。
 
 **贯穿全流程的一条铁律：**
 
@@ -94,6 +115,7 @@ Antipode 做了两件事，而且是对称的：
 │   ├── 反库演示.html                # 双栏产品演示页（单文件、断网可用）
 │   ├── 反仓库检索_实测记录.md         # 各检索源实测结论、议题可检索性地图
 │   ├── 立场抽取_实施指南.md          # P0 关键模块实施细节
+│   ├── 账号采集_说明.md             # 客户给「一个网址 + 账号」怎么读出来（三种认证 / 平台矩阵）
 │   ├── 快速上手_操作手册.md          # 环境配置逐步操作
 │   └── explorations/              # 早期探索记录（保留设计思路）
 ├── deck/对跖点路演/                 # 5 分钟路演 PPT（源文件 + 讲稿）
@@ -101,7 +123,10 @@ Antipode 做了两件事，而且是对称的：
 │   ├── STORY.md / DESIGN.md / 讲稿.md
 │   └── slides/                    # 逐页源文件
 ├── code/                          # 代码（核心链路零第三方依赖）
-│   ├── vault_fetch.py             # 模块 ⓪：从链接取正文（队友只给 URL）
+│   ├── collect_account.py        # 模块 ⓪-a：账号 + 网址 → 库（GitHub API / 浏览器登录）
+│   ├── browser_cdp.py            # 模块 ⓪-b：极简 CDP（起浏览器 / 执行 JS / 取 Cookie）
+│   ├── build_vault.py            # 模块 ⓪-c：一批链接 → 库（抓正文 / 判立场 / 省流）
+│   ├── vault_fetch.py            # 模块 ⓪：从链接取正文（队友只给 URL）
 │   ├── stance_extractor.py        # 模块 0：立场抽取 + 证据校验闸门
 │   ├── retrieval_terms.py         # 议题 → 检索词表 + 议题守卫（同形异义）
 │   ├── antipode_sources.py        # 模块 1：检索适配器（V2EX / 掘金 / CSDN / GitHub）
@@ -139,7 +164,20 @@ python first/code/selftest.py --live                   # 额外真跑一条 URL�
 python first/code/stance_extractor.py --selftest
 python first/code/antipode_engine.py --selftest        # 反引擎离线自检
 
-# 一个库 → 一批反库条目（先 --dry-run 看会怎么处理）
+# ① 采集：客户给一个主页网址 + 账号 → 建库
+#    GitHub（最稳，走官方 API）
+python first/code/collect_account.py \
+  --url https://github.com/<账号> --token <只读 PAT> \
+  --scope starred --vault-id client-gh --topic "他 star 过的"
+#    抖音 / 微博（必须登录：开窗口，人在里面过验证码）
+python first/code/collect_account.py \
+  --url https://www.douyin.com/user/<id> --browser \
+  --vault-id client-dy --topic "他的作品" --limit 20
+
+#    只有一堆链接时（不经账号）
+python first/code/build_vault.py --urls links.txt --vault-id client-a --topic "前端选型"
+
+# ② 反推荐：一个库 → 一批反库条目（先 --dry-run 看会怎么处理）
 python first/code/run_vault.py --vault first/data/vault_demo.json --dry-run
 python first/code/run_vault.py --vault first/data/vault_demo.json
 

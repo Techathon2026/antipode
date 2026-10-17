@@ -85,3 +85,7 @@ first/data/_server*.log
 
 # 自检真跑产生的临时产物
 first/.workbuddy/
+
+# 浏览器登录态 profile（--profile 指定目录时产生，等价于密码）
+.profiles/
+first/.profiles/
