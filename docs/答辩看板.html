@@ -109,7 +109,7 @@
         <div class="funnel-num">56<span>30%</span></div>
       </div>
       <div class="funnel-row">
-        <div class="funnel-label">通过四道闸门</div>
+        <div class="funnel-label">通过六道闸门</div>
         <div class="funnel-track">
           <div class="funnel-fill" style="width:3.3%;background:#2f5bea"></div>
         </div>
@@ -146,7 +146,7 @@
         <div class="funnel-num">32<span>22%</span></div>
       </div>
       <div class="funnel-row">
-        <div class="funnel-label">通过四道闸门</div>
+        <div class="funnel-label">通过六道闸门</div>
         <div class="funnel-track">
           <div class="funnel-fill" style="width:1.4%;background:#0f9d76"></div>
         </div>
@@ -179,7 +179,7 @@
       <th style="width:60px">次数</th></tr></thead><tbody><tr><td>站错边</td><td class='num'>25</td></tr><tr><td>无对立性表述</td><td class='num'>8</td></tr><tr><td>判不出</td><td class='num'>8</td></tr><tr><td>中立</td><td class='num'>6</td></tr><tr><td>对立度不足（&lt;0.7）</td><td class='num'>2</td></tr><tr><td>只有提问，正文无立场</td><td class='num'>1</td></tr><tr><td>教程标题，非观点</td><td class='num'>1</td></tr></tbody></table>
   </div>
 
-  <h2>三、五道闸门（防跑题、防自指、防抬杠）</h2>
+  <h2>三、六道闸门（防跑题、防自指、防抬杠、防串味）</h2>
   <div class="card">
     <table class="tbl"><thead><tr><th style="width:170px">闸门</th><th style="width:90px">类型</th>
       <th>拦什么</th><th style="width:120px">成本/覆盖</th></tr></thead>
@@ -193,7 +193,9 @@
         <td><span class="tag kind">模型</span></td>
         <td>模型说它站对立面不算，要它自己再判一遍并给出原文证据</td><td class="muted small">8 次调用 / 条</td></tr><tr><td class="gname">⑤ 对立性表述 + 证据校验</td>
         <td><span class="tag kind">规则+模型</span></td>
-        <td>没有&quot;反对/转向/对比&quot;的话术不算反信息；证据必须是原文真实子串</td><td class="muted small">100% 校验</td></tr></tbody></table>
+        <td>没有&quot;反对/转向/对比&quot;的话术不算反信息；证据必须是原文真实子串</td><td class="muted small">100% 校验</td></tr><tr><td class="gname">⑥ 议题覆盖度</td>
+        <td><span class="tag kind">规则+模型</span></td>
+        <td>顺带提一句就被判成立场（远程办公文→「AI 助手有益」）→ 收紧到最高议题重判一次，仍站不住就丢</td><td class="muted small">仅在触发时多 1 次调用</td></tr></tbody></table>
   </div>
 
   <h2>四、实际产出的反库条目（实测 A）</h2>
@@ -262,7 +264,7 @@
 
   <footer>
     数字由 <code>code/make_defense_page.py</code> 从 <code>data/*.stats.json</code> 直接生成，
-    与反库文件同源，不存在手抄。最后生成：2026-10-17 13:22（CST）
+    与反库文件同源，不存在手抄。最后生成：2026-10-17 13:44（CST）
   </footer>
 </div>
 </body>

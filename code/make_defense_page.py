@@ -92,7 +92,7 @@ def funnel_block(title: str, sub: str, a: dict, accent: str) -> str:
     c = max(a["candidates"], 1)
     rows = (bar("检索候选", a["candidates"], c, accent) +
             bar("粗筛后送检", a["prescreened"], c, accent) +
-            bar("通过四道闸门", a["passed"], c, accent) +
+            bar("通过六道闸门", a["passed"], c, accent) +
             bar("写入反库", a["produced"], c, accent))
     return f"""
     <div class="card">
@@ -158,6 +158,7 @@ GATES = [
     ("③ 自指排除", "规则", "检索把库条目自己搜回来、又判成反方 —— 推荐系统里最刺眼的错", "实测抓到 1 次"),
     ("④ 二次判立场", "模型", "模型说它站对立面不算，要它自己再判一遍并给出原文证据", "8 次调用 / 条"),
     ("⑤ 对立性表述 + 证据校验", "规则+模型", "没有\"反对/转向/对比\"的话术不算反信息；证据必须是原文真实子串", "100% 校验"),
+    ("⑥ 议题覆盖度", "规则+模型", "顺带提一句就被判成立场（远程办公文→「AI 助手有益」）→ 收紧到最高议题重判一次，仍站不住就丢", "仅在触发时多 1 次调用"),
 ]
 
 LIMITS = [
@@ -318,7 +319,7 @@ def main() -> int:
     {reject_table(demo)}
   </div>
 
-  <h2>三、五道闸门（防跑题、防自指、防抬杠）</h2>
+  <h2>三、六道闸门（防跑题、防自指、防抬杠、防串味）</h2>
   <div class="card">
     <table class="tbl"><thead><tr><th style="width:170px">闸门</th><th style="width:90px">类型</th>
       <th>拦什么</th><th style="width:120px">成本/覆盖</th></tr></thead>
