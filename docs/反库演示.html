@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Antipode 对跖点 · 反库演示</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#16181d; --dim:#5b6270; --line:#e5e7eb;
+    --accent:#2f5bea; --accent2:#0f9d76; --warn:#c2410c; --soft:#eef2ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);
+       font:15px/1.65 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+  .wrap{max-width:1180px;margin:0 auto;padding:34px 26px 80px}
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:.14em;font-size:12px}
+  h1{font-size:30px;line-height:1.25;margin:6px 0 6px;letter-spacing:-.02em}
+  h1 small{font-weight:400;color:var(--dim);font-size:15px;letter-spacing:0;margin-left:10px}
+  .lede{color:var(--dim);max-width:720px;margin:0}
+
+  .switch{display:flex;align-items:center;gap:10px;background:var(--card);
+          border:1px solid var(--line);border-radius:999px;padding:8px 14px 8px 12px;
+          cursor:pointer;user-select:none;white-space:nowrap;font-size:13.5px}
+  .switch .track{width:40px;height:22px;border-radius:999px;background:var(--accent);
+                 position:relative;transition:background .18s}
+  .switch .knob{position:absolute;top:2px;left:20px;width:18px;height:18px;border-radius:50%;
+                background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .18s}
+  body.off .switch .track{background:#c7ccd6}
+  body.off .switch .knob{left:2px}
+  .switch b{font-weight:650}
+
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:24px 0 6px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+  .kpi .n{font-size:22px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .kpi .l{color:var(--dim);font-size:12px}
+
+  .cols{display:grid;grid-template-columns:1fr 44px 1fr;gap:0;margin-top:22px}
+  .colhead{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0 10px;
+           display:flex;align-items:baseline;gap:8px}
+  .colhead h2{font-size:15px;margin:0;letter-spacing:.02em}
+  .colhead .sub{color:var(--dim);font-size:12px}
+  .colhead.anti h2{color:var(--accent2)}
+  .linkcol{position:relative}
+  .linkcol::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;
+                   background:var(--line);transform:translateX(-50%)}
+
+  .group{display:contents}
+  .pair{display:grid;grid-template-columns:1fr 44px 1fr;margin-bottom:16px;padding-bottom:16px}
+  .pair + .pair{border-top:1px dashed var(--line);padding-top:18px}
+  .cell{min-width:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:14px 16px}
+  .cell:not(.anti) .card{height:auto}
+  .card .t{font-weight:700;font-size:15px;line-height:1.45;margin:0 0 6px}
+  .card .t a{color:var(--ink);text-decoration:none}
+  .card .t a:hover{color:var(--accent);text-decoration:underline}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;
+        color:var(--dim);font-size:12px}
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;
+       font-weight:650;white-space:nowrap;background:#f3f4f6;color:#374151}
+  .tag.a{background:#eef2ff;color:var(--accent)}
+  .tag.b{background:#e8f5ee;color:var(--accent2)}
+  .tag.w{background:#fff5ed;color:var(--warn)}
+  .sum{color:#3c4250;font-size:13.5px;margin:0}
+  .arrow{align-self:center;text-align:center;color:#b6bcc8;font-size:13px}
+  .arrow span{display:inline-block;background:var(--bg);padding:6px 0;position:relative;z-index:1}
+
+  .antiwrap{display:flex;flex-direction:column;gap:10px}
+  .anti .t{font-size:14px}
+  .ev{margin-top:9px;padding:9px 11px;background:#fafbfc;border:1px solid #eef0f3;
+      border-left:3px solid var(--accent2);border-radius:8px;color:#414855;font-size:12.5px;
+      max-height:118px;overflow:auto;white-space:pre-wrap}
+  .ev b{display:block;color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.06em;
+        margin-bottom:3px}
+  .gobtn{display:inline-flex;align-items:center;gap:6px;margin-top:9px;padding:5px 11px;
+         border-radius:8px;background:#f5f7ff;color:var(--accent);text-decoration:none;
+         font-size:12.5px;font-weight:650;border:1px solid #e2e8fb}
+  .gobtn:hover{background:#eaefff}
+  .score{font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent2)}
+
+  .empty{background:#fbfbfc;border:1px dashed #dfe3ea;border-radius:12px;padding:14px 16px;
+         color:var(--dim);font-size:13px;height:100%}
+  .empty .et{color:#3c4250;font-weight:650;font-size:13.5px;margin-bottom:4px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{background:#f3f4f6;color:#5b6270;border-radius:6px;padding:1px 7px;font-size:11.5px}
+
+  body.off .cell.anti{opacity:.28;filter:grayscale(1);pointer-events:none}
+  .offnote{display:none;margin:26px 0 0;padding:16px 18px;border-radius:12px;
+           background:#fff8f1;border:1px solid #f6ddc4;color:#8a4b18;font-size:13.5px}
+  body.off .offnote{display:block}
+
+  footer{margin-top:34px;color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);
+         padding-top:14px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .foot-note{max-width:760px}
+  .foot-note b{color:var(--ink)}
+  @media (max-width:900px){
+    .cols,.pair{grid-template-columns:1fr}
+    .linkcol{display:none}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .arrow{display:none}
+  }
+  @media print{body{background:#fff}.card,.empty{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="kicker">TECHATHON 2026 · 反仓库演示</div>
+      <h1>Antipode 对跖点<small>左边是你收的，右边是你没看见的</small></h1>
+      <p class="lede">
+        库「技术选型与工作方式」里的每一条，
+        系统都去找同一场争论里的<b>另一面</b>，找到就放进反库并附原文出处；
+        找不到就如实说为什么找不到。
+      </p>
+    </div>
+    <div class="switch" id="sw" role="switch" aria-checked="true">
+      <span class="track"><span class="knob"></span></span>
+      <b>反推荐：开</b>
+    </div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">9</div><div class="l">仓库条目</div></div>
+    <div class="kpi"><div class="n">3</div><div class="l">找到对立面</div></div>
+    <div class="kpi"><div class="n">6</div><div class="l">反库条目</div></div>
+    <div class="kpi"><div class="n">184</div><div class="l">检索候选</div></div>
+    <div class="kpi"><div class="n">0</div><div class="l">AI 自编条目</div></div>
+  </div>
+
+  <div class="offnote">
+    这个库没有开启反推荐 —— 反推荐是按库开启的可选能力。邮件、代码 issue 这类
+    「私人事务 / 工作材料」本就没有对立面，不该开；观点类文章才开。
+  </div>
+
+  <div class="cols">
+    <div class="colhead"><h2>仓库</h2><span class="sub">用户关注的、已省流的内容</span></div>
+    <div></div>
+    <div class="colhead anti"><h2>反仓库</h2><span class="sub">同议题、反立场、带原文出处</span></div>
+  </div>
+
+  <div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://github.com/example-org/order-service/issues/482" target="_blank" rel="noopener">我们把单体拆成微服务，两年后的复盘</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · 微服务</span><span>github.com</span><span>微服务 vs 单体架构</span></div><p class="sum">作者复盘了单体到微服务的迁移：拆出七个服务后各小组可以独立发布、新人上手更快，结论是这次迁移值得做。</p></div></div><div class="arrow"><span>→<br><small>×3</small></span></div><div class="cell anti"><div class="antiwrap"><div class="card anti"><p class="t"><a href="https://www.v2ex.com/t/1106152" target="_blank" rel="noopener">从微服务走向单体化</a></p><div class="meta"><span class="tag b">反库条目</span><span class="tag">站 · 单体</span><span>对立度 <span class="score">0.95</span></span><span>v2ex.com</span><span>原站内</span></div><p class="sum">CEO因微服务部署复杂，要求合并十几个微服务为单体化，简化为一台机器部署。</p><div class="ev"><b>原文证据</b>CEO 觉得微服务部署极其繁琐, 什么 nacos 、mq 、redis 都好复杂, 远不如零几年的开发一条龙从后台到前端那么简单。 要求把十来个微服务(用户、订单、后台、网关等）合并成一个。 简化部署，只一台机器搞定</div><a class="gobtn" href="https://www.v2ex.com/t/1106152" target="_blank" rel="noopener">回现场 ↗</a></div><div class="card anti"><p class="t"><a href="https://www.v2ex.com/t/645719" target="_blank" rel="noopener">微服务的缺点</a></p><div class="meta"><span class="tag b">反库条目</span><span class="tag">站 · 单体</span><span>对立度 <span class="score">0.95</span></span><span>v2ex.com</span><span>原站内</span></div><p class="sum">微服务虽降低维护成本、增强技术灵活性，但存在网络调用多、运维成本高、易瘫痪等问题。</p><div class="ev"><b>原文证据</b>网络调用过多 - 技术栈太过灵活 - 难于应对连表查询的需求 - 核心应用崩溃会导致大面积瘫痪 - 运维成本增加 - 接口风格不一致</div><a class="gobtn" href="https://www.v2ex.com/t/645719" target="_blank" rel="noopener">回现场 ↗</a></div><div class="card anti"><p class="t"><a href="https://www.v2ex.com/t/608938" target="_blank" rel="noopener">仔细想想，微服务架构相比于单体服务架构来讲优势也没有很大</a></p><div class="meta"><span class="tag b">反库条目</span><span class="tag">站 · 单体</span><span>对立度 <span class="score">0.95</span></span><span>v2ex.com</span><span>原站内</span></div><p class="sum">微服务与单体服务在治理得当的情况下区别不大。</p><div class="ev"><b>原文证据</b>仔细想想，微服务架构相比于单体服务架构来讲优势也没有很大</div><a class="gobtn" href="https://www.v2ex.com/t/608938" target="_blank" rel="noopener">回现场 ↗</a></div></div></div></div><div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://github.com/example-org/billing/issues/88" target="_blank" rel="noopener">坚持 TDD 三年，我的真实体会</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · 先写测试</span><span>github.com</span><span>测试驱动开发是否必要</span></div><p class="sum">作者坚持测试先行三年，认为 TDD 显著降低了回归缺陷，虽然前期慢但长期回本。</p></div></div><div class="arrow"><span>→</span></div><div class="cell anti"><div class="empty"><div class="et">这一条没有反信息：候选全部被闸门拒掉</div><div>召回到了东西，但过不了对立性 / 立场 / 观点性 / 议题守卫——不凑数。</div><div class="chips"><span class="chip">中立 · 4</span><span class="chip">判不出 · 1</span><span class="chip">站错边 · 3</span></div></div></div></div><div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://github.com/example-org/console/issues/210" target="_blank" rel="noopener">为什么我们最终选了 React</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · React</span><span>github.com</span><span>React vs Vue</span></div><p class="sum">作者在 React 与 Vue 之间做了选型，最终因为生态与招人成本选了 React。</p></div></div><div class="arrow"><span>→<br><small>×2</small></span></div><div class="cell anti"><div class="antiwrap"><div class="card anti"><p class="t"><a href="https://www.v2ex.com/t/519999" target="_blank" rel="noopener">经过技术选型研究，我们放弃了 React，转向 Vue</a></p><div class="meta"><span class="tag b">反库条目</span><span class="tag">站 · Vue</span><span>对立度 <span class="score">1.00</span></span><span>v2ex.com</span><span>原站内</span></div><p class="sum">因React无法高效渲染高频率更新的大量组件，导致卡顿，团队决定放弃React转向Vue。</p><div class="ev"><b>原文证据</b>因为几个项目下来，我们发现前端的应用过于卡顿，甚至还不如上一版本 JQuery Easy UI 做出来。</div><a class="gobtn" href="https://www.v2ex.com/t/519999" target="_blank" rel="noopener">回现场 ↗</a></div><div class="card anti"><p class="t"><a href="https://www.v2ex.com/t/391069" target="_blank" rel="noopener">WordPress 宣布放弃使用 React</a></p><div class="meta"><span class="tag b">反库条目</span><span class="tag">站 · Vue</span><span>对立度 <span class="score">0.95</span></span><span>v2ex.com</span><span>原站内</span></div><p class="sum">WordPress因React许可证问题放弃使用，将重写项目并考虑用Vue或Preact替代。</p><div class="ev"><b>原文证据</b>呼声最高的是 Vue</div><a class="gobtn" href="https://www.v2ex.com/t/391069" target="_blank" rel="noopener">回现场 ↗</a></div></div></div></div><div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://www.v2ex.com/t/1000001" target="_blank" rel="noopener">远程三年，我再也不想回办公室了</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · 远程办公</span><span>v2ex.com</span><span>远程办公 vs 坐班</span></div><p class="sum">作者远程办公三年，认为在家效率更高、通勤时间转化为产出，回办公室反而被打断。</p></div></div><div class="arrow"><span>→</span></div><div class="cell anti"><div class="empty"><div class="et">这一条没有反信息：候选全部被闸门拒掉</div><div>召回到了东西，但过不了对立性 / 立场 / 观点性 / 议题守卫——不凑数。</div><div class="chips"><span class="chip">站错边 · 7</span><span class="chip">判不出 · 1</span></div></div></div></div><div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://juejin.cn/post/7000000000000001" target="_blank" rel="noopener">用 AI 助手写代码一年，我的效率翻了一倍</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · AI 助手有益</span><span>juejin.cn</span><span>AI 编程助手是否让程序员退化</span></div><p class="sum">作者使用 AI 编程助手一年，认为它把样板代码与查文档的时间大幅压缩，是正向收益。</p></div></div><div class="arrow"><span>→</span></div><div class="cell anti"><div class="antiwrap"><div class="card anti"><p class="t"><a href="https://blog.csdn.net/weixin_32954161/article/details/161873604" target="_blank" rel="noopener">对话式AI过度依赖：用户行为分析与应对策略</a></p><div class="meta"><span class="tag b">反库条目</span><span class="tag">站 · AI 助手有害</span><span>对立度 <span class="score">0.95</span></span><span>blog.csdn.net</span><span>全网</span></div><p class="sum">对话式AI用户过度依赖错误建议，研究分析并提出应对策略。</p><div class="ev"><b>原文证据</b>对话式AI过度依赖：用户行为分析与应对策略
+
+1. 对话式语言模型依赖行为研究概述 在人工智能技术快速发展的今天，对话式语言模型(LLM)已成为我们日常工作和学</div><a class="gobtn" href="https://blog.csdn.net/weixin_32954161/article/details/161873604" target="_blank" rel="noopener">回现场 ↗</a></div></div></div></div><div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://www.v2ex.com/t/1000002" target="_blank" rel="noopener">小团队就别自建机房了，上云的账其实很好算</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · 上云</span><span>v2ex.com</span><span>上云 vs 自建</span></div><p class="sum">作者算了一笔账，认为小团队自建服务器的隐性成本远高于云服务账单。</p></div></div><div class="arrow"><span>→</span></div><div class="cell anti"><div class="empty"><div class="et">这一条没有反信息：候选全部被闸门拒掉</div><div>召回到了东西，但过不了对立性 / 立场 / 观点性 / 议题守卫——不凑数。</div><div class="chips"><span class="chip">站错边 · 5</span><span class="chip">无对立性表述 · 3</span></div></div></div></div><div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://juejin.cn/post/7000000000000002" target="_blank" rel="noopener">把 TS 严格模式全开之后，我们修掉了三十个潜在 bug</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · 静态类型</span><span>juejin.cn</span><span>静态类型 vs 动态类型</span></div><p class="sum">作者团队开启 TypeScript 严格模式，短期内修了一批线上潜在问题，长期减少联调成本。</p></div></div><div class="arrow"><span>→</span></div><div class="cell anti"><div class="empty"><div class="et">这一条没有反信息：候选全部被闸门拒掉</div><div>召回到了东西，但过不了对立性 / 立场 / 观点性 / 议题守卫——不凑数。</div><div class="chips"><span class="chip">教程标题，非观点 · 1</span><span class="chip">无对立性表述 · 1</span><span class="chip">站错边 · 4</span><span class="chip">判不出 · 1</span><span class="chip">对立度不足（&lt;0.7） · 1</span></div></div></div></div><div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://www.v2ex.com/t/1000003" target="_blank" rel="noopener">微服务和单体到底怎么选？整理了一份对照表</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · neutral</span><span>v2ex.com</span><span>微服务 vs 单体架构</span></div><p class="sum">作者整理了微服务与单体在团队规模、部署复杂度、故障域上的对照表，不表态。</p></div></div><div class="arrow"><span>→</span></div><div class="cell anti"><div class="empty"><div class="et">这一条没有反信息：原文没有明确立场</div><div>这篇文章是中立讨论或综述，两边都提到但不站边。没有立场就没有对立面。</div></div></div></div><div class="pair"><div class="cell"><div class="card"><p class="t"><a href="https://www.v2ex.com/t/1000004" target="_blank" rel="noopener">K8s 和直接用虚拟机比，到底强在哪</a></p><div class="meta"><span class="tag a">仓库条目</span><span class="tag">支持 · 直接虚拟机</span><span>v2ex.com</span><span>k8s_vs_vm</span></div><p class="sum">队友的兴趣标签给了一个不在 16 议题表里的议题：容器编排 vs 虚拟机。</p></div></div><div class="arrow"><span>→</span></div><div class="cell anti"><div class="empty"><div class="et">这一条没有反信息：议题不在支持清单内</div><div>文章谈的不是我们建了二元议题的那 16 个争论，硬找对立面只会跑偏。</div></div></div></div>
+
+  <footer>
+    <div class="foot-note">
+      口径：以上反库条目由 <b>run_vault.py</b> 于 2026-10-17T13:22:14+08:00 实跑产出，
+      共 6 条，<b>全部带真实 URL 与原文证据片段</b>，
+      其中 AI 自编 0 条（第三档，默认关闭）。
+      「没有反信息」不是失败，是判定结果 —— 强行凑数才叫失败。<br>
+      说明：左侧仓库条目为<b>演示用构造数据</b>（模拟队友侧的库），
+      右侧反库条目为<b>真实检索产出</b>，链接可点开核对。
+    </div>
+    <div>生成于 2026-10-17 13:28 · 纯静态，断网可用</div>
+  </footer>
+</div>
+<script>
+  document.getElementById('sw').addEventListener('click', function () {
+    var on = document.body.classList.toggle('off') === false;
+    this.setAttribute('aria-checked', String(on));
+    this.querySelector('b').textContent = on ? '反推荐：开' : '反推荐：关';
+  });
+</script>
+</body>
+</html>

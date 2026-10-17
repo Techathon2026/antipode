@@ -1,0 +1,85 @@
+<Slide style={{ width: 1280, height: 720, background: '#F7F5F0', padding: '0px' }}>
+    <Box style={{ position: 'relative', width: 1280, height: 720, padding: '20px 60px' }}>
+
+        <Box style={{ height: 110, flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <Text style={{ fontSize: 13, letterSpacing: 3, color: '#2F5BE4', marginBottom: 10 }}>0 5 · 漏 斗（真实一次整库运行）</Text>
+            <Text style={{ fontSize: 38, fontWeight: 'bold', color: '#14161A', lineHeight: 1.25 }}>
+                184 个候选，最后留下 <span style={{ color: '#C2410C' }}>6</span> 条
+            </Text>
+        </Box>
+
+        <Box style={{ height: 510, flexDirection: 'row', gap: 48 }}>
+
+            {/* 左：漏斗 */}
+            <Box style={{ width: 640, flexDirection: 'column', paddingTop: 8 }}>
+
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 22, marginBottom: 30 }}>
+                    <Text style={{ width: 130, fontSize: 72, fontWeight: 'bold', color: '#14161A', lineHeight: 1.0 }}>184</Text>
+                    <Box style={{ flex: 1, flexDirection: 'column' }}>
+                        <Text style={{ fontSize: 16, color: 'rgba(20,22,26,0.55)', marginBottom: 8 }}>检索候选</Text>
+                        <Box style={{ height: 14, background: '#2F5BE4', borderRadius: 2 }} />
+                    </Box>
+                </Box>
+
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 22, marginBottom: 30 }}>
+                    <Text style={{ width: 130, fontSize: 72, fontWeight: 'bold', color: '#14161A', lineHeight: 1.0 }}>56</Text>
+                    <Box style={{ flex: 1, flexDirection: 'column' }}>
+                        <Text style={{ fontSize: 16, color: 'rgba(20,22,26,0.55)', marginBottom: 8 }}>粗筛后送模型判定</Text>
+                        <Box style={{ height: 14, background: 'rgba(47,91,228,0.45)', width: 195, borderRadius: 2 }} />
+                    </Box>
+                </Box>
+
+                <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 22 }}>
+                    <Text style={{ width: 130, fontSize: 72, fontWeight: 'bold', color: '#C2410C', lineHeight: 1.0 }}>6</Text>
+                    <Box style={{ flex: 1, flexDirection: 'column' }}>
+                        <Text style={{ fontSize: 16, color: 'rgba(20,22,26,0.55)', marginBottom: 8 }}>通过六道闸门，写入反库</Text>
+                        <Box style={{ height: 14, background: '#C2410C', width: 21, borderRadius: 2 }} />
+                    </Box>
+                </Box>
+
+                <Box style={{ marginTop: 44, paddingTop: 18, borderTop: '1px solid rgba(20,22,26,0.10)' }}>
+                    <Text style={{ fontSize: 16, color: 'rgba(20,22,26,0.60)', lineHeight: 1.6 }}>
+                        3.3% 的留存率不是失败 —— <span style={{ fontWeight: 'bold', color: '#14161A' }}>留下的每一条都能点回原文</span>。
+                    </Text>
+                </Box>
+            </Box>
+
+            {/* 右：拒因 */}
+            <Box style={{ width: 400, flexDirection: 'column', paddingTop: 8 }}>
+                <Text style={{ fontSize: 15, fontWeight: 'bold', color: 'rgba(20,22,26,0.45)', letterSpacing: 2, marginBottom: 16 }}>
+                    拒因（部分）
+                </Text>
+
+                <Box style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid rgba(20,22,26,0.08)' }}>
+                    <Text style={{ fontSize: 18, color: '#14161A' }}>站错边（不是反方）</Text>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#14161A' }}>25</Text>
+                </Box>
+
+                <Box style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid rgba(20,22,26,0.08)' }}>
+                    <Text style={{ fontSize: 18, color: '#14161A' }}>无对立性表述</Text>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#14161A' }}>8</Text>
+                </Box>
+
+                <Box style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid rgba(20,22,26,0.08)' }}>
+                    <Text style={{ fontSize: 18, color: '#14161A' }}>判不出立场</Text>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#14161A' }}>8</Text>
+                </Box>
+
+                <Box style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid rgba(20,22,26,0.08)' }}>
+                    <Text style={{ fontSize: 18, color: '#14161A' }}>中立 / 两面都说</Text>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#14161A' }}>6</Text>
+                </Box>
+
+                <Text style={{ fontSize: 15, color: 'rgba(20,22,26,0.45)', marginTop: 12 }}>另有少数因对立度不足、教程标题被拒</Text>
+                <Text style={{ fontSize: 14, color: 'rgba(20,22,26,0.40)', marginTop: 20, lineHeight: 1.6 }}>
+                    还有 128 个候选在粗筛阶段就被判为与本议题无关，没有进模型。
+                </Text>
+            </Box>
+        </Box>
+
+        <Box style={{ position: 'absolute', left: 60, right: 60, bottom: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 13, color: 'rgba(20,22,26,0.40)' }}>ANTIPODE · TECHATHON 2026</Text>
+            <Text style={{ fontSize: 13, color: 'rgba(20,22,26,0.40)' }}>06 / 09</Text>
+        </Box>
+    </Box>
+</Slide>

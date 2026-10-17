@@ -1,0 +1,34 @@
+<Slide style={{ width: 1280, height: 720, background: 'linear-gradient(120deg, #14161A 0%, #1D2430 100%)', padding: '0px' }}>
+    <Box style={{ position: 'relative', width: 1280, height: 720, flexDirection: 'row', padding: '0px 80px', alignItems: 'center' }}>
+
+        {/* 右侧：对跖点圆环 —— 两个永远看不到彼此的点 */}
+        <Box style={{ position: 'absolute', right: 96, top: 150, width: 400, height: 400 }}>
+            <Box style={{ position: 'absolute', left: 0, top: 0, width: 400, height: 400, borderRadius: 200, border: '1px solid rgba(247,245,240,0.20)' }} />
+            <Box style={{ position: 'absolute', left: 199, top: 0, width: 2, height: 400, background: 'rgba(194,65,12,0.55)' }} />
+            <Box style={{ position: 'absolute', left: 322, top: 78, width: 26, height: 26, borderRadius: 13, background: '#F7F5F0' }} />
+            <Box style={{ position: 'absolute', left: 52, top: 296, width: 26, height: 26, borderRadius: 13, background: '#C2410C' }} />
+            <Text style={{ position: 'absolute', left: 356, top: 84, fontSize: 13, color: 'rgba(247,245,240,0.55)' }}>你在这</Text>
+            <Text style={{ position: 'absolute', left: 86, top: 300, fontSize: 13, color: '#C2410C' }}>它在这</Text>
+        </Box>
+
+        {/* 左侧：标题区 */}
+        <Box style={{ width: 660, flexDirection: 'column' }}>
+            <Text style={{ fontSize: 13, letterSpacing: 2, color: 'rgba(247,245,240,0.50)', marginBottom: 26 }}>
+                TECHATHON 2026 · 融合信息软件 · 上海科技大学
+            </Text>
+            <Text style={{ fontSize: 96, fontWeight: 'bold', color: '#F7F5F0', lineHeight: 1.05, letterSpacing: 4 }}>
+                对跖点
+            </Text>
+            <Text style={{ fontSize: 15, letterSpacing: 9, color: '#C2410C', marginTop: 10 }}>
+                A N T I P O D E
+            </Text>
+            <Box style={{ width: 64, height: 2, background: '#C2410C', marginTop: 34, marginBottom: 30 }} />
+            <Text style={{ fontSize: 30, color: 'rgba(247,245,240,0.92)', lineHeight: 1.5 }}>
+                左边是你收的，<br />右边是你没看见的。
+            </Text>
+            <Text style={{ fontSize: 18, color: 'rgba(247,245,240,0.55)', marginTop: 22, lineHeight: 1.6 }}>
+                一个自动为你的信息库建立「反仓库」的系统
+            </Text>
+        </Box>
+    </Box>
+</Slide>
