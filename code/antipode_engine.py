@@ -52,7 +52,7 @@ except Exception:
 from stance_extractor import (  # noqa: E402
     ISSUE_TAXONOMY, resolve_side, opposite_side, verify_evidence, normalize,
 )
-from passage_selector import select_from_vault_item, select_passages  # noqa: E402
+from passage_selector import select_from_vault_item, select_passages, Passage  # noqa: E402
 from antipode_sources import (  # noqa: E402
     collect, is_usable_candidate, keyword_hit, has_stance_signal, Candidate,
     RETRIEVAL_SOURCES,
@@ -132,6 +132,31 @@ def _fixture() -> list[Candidate]:
 
 
 # ---------------------------------------------------------------------------
+# 教程标题守卫（规则级，拦在模型之前）
+#
+# ⚠️ URL-only 路径实测：跑出来的两条"反方"，是《从零学习 React 技术栈系列教程连载》
+# 和《零基础学 React 完整路线》。它们是**关于 React 的教程**，不是"支持 React、反对 Vue"的观点文。
+# 模型判它们"支持 React"没错 —— 标题里确实只有 React；错在**教程本来就不是反面观点**。
+# is_opinion_post() 那一步判宽了，于是靠这条标题规则兜住。
+#
+# 判据：标题像教程，且**没有**任何"立场/转向/比较"的词 → 不是观点文。
+# 保留"放弃/不如/为什么我们"这类词，是为了不误杀《从入门到放弃，我们为何回到 Vue》这种真观点文。
+# ---------------------------------------------------------------------------
+TUTORIAL_TITLE = re.compile(
+    r"教程|从零(学习|实现|搭建|开始)|零基础|入门(到|教程|指南|篇)|学习路线|系列(连载|教程)"
+    r"|实战教程|手把手|带你(学|实现|写)|一文(读懂|看懂|学会)|详解|保姆级|速成|源码(解析|分析|阅读)"
+)
+STANCE_TITLE = re.compile(
+    r"放弃|不如|转向|迁移|换掉|替换|替代|对比|选型|为何|为什么|后悔|缺点|缺陷|不值得|踩坑|踩过的坑|取舍"
+)
+
+
+def is_tutorial_title(title: str) -> bool:
+    t = title or ""
+    return bool(TUTORIAL_TITLE.search(t)) and not STANCE_TITLE.search(t)
+
+
+# ---------------------------------------------------------------------------
 # 漏斗统计 —— 每一步的数字都要能对得上账
 # ---------------------------------------------------------------------------
 @dataclass
@@ -143,9 +168,16 @@ class Funnel:
     vault_side: str = ""
     stance_from: str = ""            # vault（队友已标）/ model（我抽的）
     stance_calls: int = 0
+    rejudge: int = 0                 # 触发"议题纠偏重判"的次数
+    rejudge_fixed: int = 0           # 其中重判成功的次数
     want_side: str = ""
     candidates: int = 0
     off_topic: int = 0       # 议题守卫拦下的条数（形近异义，未送检）
+    self_ref: int = 0        # 检索把原条目自己搜回来了（自指），已丢弃
+    fetch_ok: bool = False   # 库条目只给了 URL 时，是否取到了正文
+    fetch_method: str = ""   # site / container / blocks
+    fetch_chars: int = 0
+    fetch_error: str = ""
     per_stage: dict = field(default_factory=dict)
     per_source: dict = field(default_factory=dict)
     prescreened: int = 0
@@ -173,14 +205,23 @@ class Funnel:
         if self.mode:
             L.append(f"运行模式       {self.mode}")
 
+        if self.fetch_ok or self.fetch_error:
+            if self.fetch_ok:
+                L.append(f"ⓠ 取正文       {self.fetch_chars} 字（{self.fetch_method}）← 库条目只给了链接")
+            else:
+                L.append(f"ⓠ 取正文       失败：{self.fetch_error}")
         src = {"vault": "队友已标注（省一次模型调用）", "model": f"我自己抽的（{self.stance_calls} 次调用）"}.get(
             self.stance_from, self.stance_from)
         L.append(f"① 判立场       {self.vault_supports}  [{self.vault_side}]   ← {src}")
+        if self.rejudge:
+            L.append(f"   议题纠偏     重判 {self.rejudge} 次，改对 {self.rejudge_fixed} 次")
         L.append(f"② 取对立面     {self.want_side}")
         L.append(f"③ 检索候选     {self.candidates} 条   "
                  f"档位 {self.per_stage}   来源 {self.per_source}")
         if self.off_topic:
             L.append(f"   议题守卫     拦下 {self.off_topic} 条（字面命中但讨论的不是这场争论）")
+        if self.self_ref:
+            L.append(f"   自指排除     丢掉 {self.self_ref} 条（检索把原条目自己搜回来了）")
         L.append(f"   粗筛送检     {self.prescreened} 条（按沾题 + 立场信号排序）")
         if self.enriched:
             L.append(f"   补论证素材   {self.enriched} 条（HN 文章只有标题 → 取其讨论评论）")
@@ -209,6 +250,41 @@ class Funnel:
 # ---------------------------------------------------------------------------
 # 工具
 # ---------------------------------------------------------------------------
+def _topic_coverage(text: str) -> dict[str, int]:
+    """数一遍每个议题的 topic 词在原文里出现了几次。
+
+    用来治"议题串味"：模型从 16 个议题里挑一个，偶尔会挑到一个**原文几乎没提**的
+    （实测：一篇讲远程办公的文章被判成「AI 助手有益」，只因为文中提了一句 AI 工具，
+    接着反推"AI 助手有害"，反库里就出现了一篇 AI 依赖研究 —— 与用户看的文章毫无关系）。
+    """
+    low = (text or "").lower()
+    if not low:
+        return {}
+    out: dict[str, int] = {}
+    for iid, terms in ISSUE_TERMS.items():
+        if terms.get("retrieval") == "none":
+            continue
+        n = 0
+        for k in terms.get("topics", []):
+            k = str(k).lower().strip()
+            if k:
+                n += low.count(k)
+        out[iid] = n
+    return out
+
+
+def _norm_url(u: str) -> str:
+    """URL 归一化：只留 域名 + 路径（去 scheme、www、query、fragment、末尾斜杠）。
+    目的是判断"是不是同一篇文章"，不是精确比较，所以故意粗一点。"""
+    u = (u or "").strip().lower()
+    if not u:
+        return ""
+    u = re.sub(r"^https?://", "", u)
+    u = re.sub(r"^www\.", "", u)
+    u = re.split(r"[?#]", u)[0].rstrip("/")
+    return u
+
+
 def build_anchors(issue_id: str) -> list[str]:
     """判断候选"沾不沾题"用的锚点词。"""
     issue = ISSUE_BY_ID.get(issue_id) or {}
@@ -343,9 +419,45 @@ def build_antipode_items(
     if issue_id and supports and issue_id in ISSUE_BY_ID:
         f.stance_from = "vault"
     else:
+        # ⓠ 队友只给 URL 的情况：先把正文取回来，否则判立场无从谈起。
+        # 实测能抓：CSDN / GitHub / 少数派 / 普通博客；抓不到：V2EX（本机不通）、
+        # 知乎（403）、公众号（JS 渲染）。抓不到就明确报错，绝不编正文。
+        from vault_fetch import fetch_article
+
+        item = dict(vault_item)
+        if not any(str(item.get(k) or "").strip() for k in ("full_text", "raw_excerpt", "summary")):
+            url = str(item.get("url") or item.get("source_url") or "").strip()
+            if not url:
+                raise RuntimeError("库条目里没有正文，也没有链接 —— 无法判立场")
+            res = fetch_article(url)
+            f.fetch_ok, f.fetch_method = res.ok, res.method
+            f.fetch_chars, f.fetch_error = res.chars, res.error
+            if not res.ok:
+                raise RuntimeError(f"取不到正文（{res.error}）：{url}")
+            if verbose:
+                print(f"  [取正文] {res.method} · {res.chars} 字 · {res.title[:40]}", file=sys.stderr)
+            item["full_text"] = res.text
+            if not str(item.get("title") or "").strip():
+                item["title"] = res.title
+            if not str(item.get("summary") or "").strip():
+                item["summary"] = res.text[:140]
+            vault_item = item
+
         passages, pstats = select_from_vault_item(vault_item)
         if not passages:
-            raise RuntimeError("库条目里没有任何可用文本（full_text / raw_excerpt / summary 都空）")
+            # 退化：段落粗筛是为**反库候选**设计的（从长文里挑"作者在表态"的那段）。
+            # 库条目这一侧只需要"截到模型读得完的篇幅"，不需要它有立场信号。
+            # 工具文、操作手册、命令速查本来就没有立场 —— 那种情况应该由模型判出
+            # "无立场"（no_stance），而不是在这里报"没有可用正文"。
+            raw = str(vault_item.get("full_text") or vault_item.get("raw_excerpt")
+                      or vault_item.get("summary") or "").strip()
+            if not raw:
+                raise RuntimeError("库条目里没有任何可用正文（full_text / raw_excerpt / summary 都空）")
+            cut = raw[:1800]
+            passages = [Passage(index=0, text=cut, score=0, selected=True)]
+            pstats = {"compression": round(len(cut) / max(1, len(raw)), 3),
+                      "source_field": "fallback", "fallback": True,
+                      "note": "粗筛未选出带立场信号的段落 → 直接截取正文"}
         if verbose:
             print(f"  [库条目] 精选 {len(passages)} 段 / 压缩比 {pstats['compression']}"
                   f"（读的字段：{pstats.get('source_field')}）", file=sys.stderr)
@@ -360,6 +472,39 @@ def build_antipode_items(
                 best = j
         if best is None:
             raise RuntimeError("未能从库条目里判出明确立场（都是中立/判不出）—— 这条不该进反仓库")
+
+        # ★ 议题依据闸门：判出来的议题，必须在原文里真的有"依据"。
+        # 判据：该议题的 topic 词在原文出现 0 次，而别的议题出现 ≥2 次 → 判为串味。
+        # 只在这种"明显没依据"的情况下拦 —— 短文本天然命中少，不做排名比较，免得误杀。
+        _cov = _topic_coverage(" ".join(texts))
+        _mine = _cov.get(best.issue_id, 0)
+        _stronger = [k for k, v in _cov.items() if k != best.issue_id and v >= 2 and v > _mine]
+        if _mine == 0 and _stronger:
+            # 纠正优于丢弃：模型偶尔会在 16 个议题里挑错一场（实测：一篇讲**远程办公**的文章
+            # 被判成「AI 助手有益」，只因为文中提了一句 AI 工具，接着反推出"AI 助手有害"，
+            # 反库里就出现了一篇与用户看的文章毫无关系的 AI 依赖研究）。
+            #
+            # 做法：把它拉回**覆盖率最高**的那个议题重判一次。只收紧议题范围、不提示立场，
+            # 判的仍然是模型自己。重判仍站不出立场，才丢弃 —— 丢弃是最后手段，不是第一手段。
+            retry: Judgment | None = None
+            if not offline:
+                cand_issue = max(_stronger, key=lambda k: _cov.get(k, 0))
+                f.rejudge += 1
+                again = [x for x in backend.judge(texts, cand_issue)
+                         if x.side in ("a", "b") and (x.issue_id or cand_issue) == cand_issue]
+                if again:
+                    retry = max(again, key=lambda x: x.confidence)
+                    retry.issue_id = cand_issue
+                    f.rejudge_fixed += 1
+                    if verbose:
+                        print(f"  [纠偏] 议题 {best.issue_id} → {cand_issue}"
+                              f"（原文里 {cand_issue} 出现 {_cov.get(cand_issue, 0)} 次）",
+                              file=sys.stderr)
+            if retry is None:
+                raise RuntimeError(
+                    f"判出的议题「{best.issue_id}」在原文里没有依据（原文更像 {_stronger[:2]}）—— 判为串味，不生成"
+                )
+            best = retry
         issue_id, supports = best.issue_id, best.supports
 
     issue = ISSUE_BY_ID[issue_id]
@@ -382,6 +527,15 @@ def build_antipode_items(
             issue_id, want, origin=origin, anchors=anchors,
             sources=sources, min_usable=3,
         )
+    # ★ 自指排除：候选里可能有**库条目自己**。
+    # 实测：库条目是 CSDN《对话式AI过度依赖》，检索"过度依赖"时把它自己搜了回来，
+    # 判成反方就进了反库 —— 推荐系统里最刺眼的一种错：把用户看过的原文当新发现推给他。
+    _self = _norm_url(str(vault_item.get("url") or ""))
+    if _self:
+        kept = [c for c in cands if _norm_url(c.url) != _self]
+        f.self_ref = len(cands) - len(kept)
+        cands = kept
+
     f.candidates = len(cands)
     for c in cands:
         f.per_stage[c.stage or "未标注"] = f.per_stage.get(c.stage or "未标注", 0) + 1
@@ -521,6 +675,11 @@ def build_antipode_items(
                 f.reject("中立")
             else:
                 f.reject("站错边")
+            continue
+
+        # 教程标题守卫：标题像教程/入门/系列连载，且没有任何立场词 → 不是反面观点。
+        if is_tutorial_title(c.title or ""):
+            f.reject("教程标题，非观点")
             continue
 
         # 对立性表述闸门：模型说它站对立面，但它得有"反对/转向"的话术才算反信息。
@@ -725,7 +884,12 @@ def main() -> int:
     ap.add_argument("--no-enrich", action="store_true", help="不补论证素材（HN 讨论评论）")
     ap.add_argument("--out", default="", help="输出路径（默认 data/antipode_<vault_id>.jsonl）")
     ap.add_argument("--report-only", action="store_true", help="只打印漏斗，不写文件")
+    ap.add_argument("--cookies", default="", metavar="PATH",
+                    help="登录态 Cookie 文件（JSON），用于知乎/公众号等反爬站点")
     args = ap.parse_args()
+
+    if args.cookies:
+        os.environ["ANTIPODE_COOKIES"] = os.path.abspath(args.cookies)
 
     if args.selftest:
         return selftest()

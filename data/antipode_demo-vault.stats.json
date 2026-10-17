@@ -1,7 +1,7 @@
 {
   "vault_id": "demo-vault",
   "vault_topic": "技术选型与工作方式",
-  "ran_at": "2026-10-17T11:40:40+08:00",
+  "ran_at": "2026-10-17T13:22:14+08:00",
   "mode": "online",
   "items_total": 9,
   "items_with_output": 3,
@@ -27,12 +27,11 @@
       "passed": 3,
       "rejected": {
         "站错边": 2,
-        "无对立性表述": 2,
-        "只有提问，正文无立场": 1,
-        "中立": 1
+        "无对立性表述": 3,
+        "只有提问，正文无立场": 1
       },
       "error": "",
-      "elapsed_s": 50.6
+      "elapsed_s": 48.7
     },
     {
       "item_id": "demo-tdd-1",
@@ -51,7 +50,7 @@
         "站错边": 3
       },
       "error": "",
-      "elapsed_s": 31.0
+      "elapsed_s": 25.4
     },
     {
       "item_id": "demo-rv-1",
@@ -72,7 +71,7 @@
         "无对立性表述": 1
       },
       "error": "",
-      "elapsed_s": 34.1
+      "elapsed_s": 34.2
     },
     {
       "item_id": "demo-remote-1",
@@ -90,7 +89,7 @@
         "判不出": 1
       },
       "error": "",
-      "elapsed_s": 93.1
+      "elapsed_s": 96.9
     },
     {
       "item_id": "demo-ai-1",
@@ -109,7 +108,7 @@
         "中立": 1
       },
       "error": "",
-      "elapsed_s": 108.2
+      "elapsed_s": 126.9
     },
     {
       "item_id": "demo-cloud-1",
@@ -127,7 +126,7 @@
         "无对立性表述": 3
       },
       "error": "",
-      "elapsed_s": 47.6
+      "elapsed_s": 42.0
     },
     {
       "item_id": "demo-typing-1",
@@ -141,12 +140,14 @@
       "prescreened": 8,
       "passed": 0,
       "rejected": {
-        "无对立性表述": 2,
-        "站错边": 5,
-        "判不出": 1
+        "教程标题，非观点": 1,
+        "无对立性表述": 1,
+        "站错边": 4,
+        "判不出": 1,
+        "对立度不足（<0.7）": 1
       },
       "error": "",
-      "elapsed_s": 97.8
+      "elapsed_s": 81.6
     },
     {
       "item_id": "demo-neutral-1",

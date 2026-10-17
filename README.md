@@ -81,12 +81,14 @@ Antipode 做了两件事，而且是对称的：
 │   ├── 融合信息软件_技术方案.md       # 主技术方案（数据模型 / 算法 / 分期）
 │   ├── 融合信息软件_技术清单.md       # 五层技术栈与选型
 │   ├── 接口契约_仓库到反仓库.md       # 库 / 条目 / 反库条目 三层字段（给队友）
-│   ├── 反仓库流水线_模块说明.md       # 流水线七个模块的机制与实测数字
+│   ├── 反仓库流水线_模块说明.md       # 流水线各模块的机制与实测数字
+│   ├── 答辩看板.html                # 一页讲完：漏斗 / 闸门 / 局限 / 备答（数字自动生成）
 │   ├── 反仓库检索_实测记录.md         # 各检索源实测结论、议题可检索性地图
 │   ├── 立场抽取_实施指南.md          # P0 关键模块实施细节
 │   ├── 快速上手_操作手册.md          # 环境配置逐步操作
 │   └── explorations/              # 早期探索记录（保留设计思路）
 ├── code/                          # 代码（核心链路零第三方依赖）
+│   ├── vault_fetch.py             # 模块 ⓪：从链接取正文（队友只给 URL）
 │   ├── stance_extractor.py        # 模块 0：立场抽取 + 证据校验闸门
 │   ├── retrieval_terms.py         # 议题 → 检索词表 + 议题守卫（同形异义）
 │   ├── antipode_sources.py        # 模块 1：检索适配器（V2EX / 掘金 / CSDN / GitHub）
@@ -94,6 +96,8 @@ Antipode 做了两件事，而且是对称的：
 │   ├── model_adapter.py           # 模型适配层（三种后端，模型无关）
 │   ├── antipode_engine.py         # 引擎：库条目 → 反库条目（含漏斗报告）
 │   ├── run_vault.py               # 批量编排：一个库 → 一批反库条目
+│   ├── server.py                  # HTTP 接口层：POST /antipode（给前端 / 队友）
+│   ├── make_defense_page.py       # 生成答辩看板（数字直接读实测产物）
 │   ├── run_demo.py                # 演示：三个议题一次跑完
 │   └── gold_set.jsonl             # 立场抽取评测集
 ├── data/                          # 库与反库的样例数据（JSONL）
@@ -121,6 +125,18 @@ python code/antipode_engine.py --selftest        # 反引擎离线自检
 # 一个库 → 一批反库条目（先 --dry-run 看会怎么处理）
 python code/run_vault.py --vault data/vault_demo.json --dry-run
 python code/run_vault.py --vault data/vault_demo.json
+
+# 只有链接也能跑（条目里只写 {"url": "..."}）
+python code/run_vault.py --vault data/vault_url_only.json
+
+# 起一个 HTTP 接口给前端 / 队友调
+python code/server.py --port 8787
+curl -s -X POST http://127.0.0.1:8787/antipode \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://blog.csdn.net/fudaihb/article/details/136061101"}'
+
+# 重新生成答辩看板（跑完实验后执行，数字自动更新）
+python code/make_defense_page.py
 
 # 单条跑 + 看漏斗
 python code/antipode_engine.py --json code/vault_item.example.json --origin v2ex

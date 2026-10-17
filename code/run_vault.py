@@ -29,6 +29,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -66,11 +67,14 @@ OUTCOME_LABEL = {
     "produced": "✅ 有产出",
     "neutral": "中立立场（无可对立）",
     "no_issue": "议题不在 16 议题表内",
+    "no_stance": "原文没有明确立场（无可对立）",
+    "off_issue": "判出的议题与原文不符（判立场串味）",
     "no_text": "条目没有可用正文",
     "no_candidate": "检索零候选（议题不可检索）",
     "all_rejected": "候选全被闸门拒（检索到了但确实不是反方）",
     "truncated": "通过但被 top-k 截断",
     "error": "运行出错",
+    "fetch_failed": "取不到正文（链接抓不到，无法判立场）",
     "disabled": "库未开启反推荐",
     "skipped": "已有记录，跳过（断点续跑）",
 }
@@ -101,6 +105,8 @@ class Row:
             base = f"候选 {self.candidates} → 送检 {self.prescreened} 全拒（{detail}）"
         elif self.outcome == "no_candidate":
             base = f"0 候选 —— 该议题在当前中文源上没有可召回内容"
+        elif self.outcome == "fetch_failed":
+            base = self.error[:88]
         elif self.outcome == "error":
             base = self.error[:80]
         else:
@@ -154,6 +160,36 @@ def _read_jsonl(path: str) -> list[dict]:
     return out
 
 
+def _normalize_items(items: list[dict]) -> list[dict]:
+    """把"只有 URL"的条目补齐成能跑的条目。
+
+    队友只给原文章地址是**常态**，不是异常。所以这里做三件小事：
+      ① 没 id → 用链接的 sha1 前 10 位造一个（稳定、可复现，重跑能对上）
+      ② 没 source → 从域名推断（三档检索的第一档要知道"原条目在哪个源"）
+      ③ 没 title → 留空，等取正文时补（正文里的 h1 / <title> 更准）
+    """
+    try:
+        from vault_fetch import guess_source
+    except Exception:                                            # noqa: BLE001
+        guess_source = lambda u: ""                              # noqa: E731
+
+    out: list[dict] = []
+    for it in items:
+        it = dict(it)
+        url = str(it.get("url") or it.get("source_url") or "").strip()
+        if url and not it.get("url"):
+            it["url"] = url
+        if not str(it.get("id") or "").strip():
+            if not url:
+                out.append(it)            # 没 id 也没链接 → 交给 preflight 报错
+                continue
+            it["id"] = "u-" + hashlib.sha1(url.encode("utf-8")).hexdigest()[:10]
+        if url and not str(it.get("source") or "").strip():
+            it["source"] = guess_source(url)
+        out.append(it)
+    return out
+
+
 def load_done(path: str) -> dict[str, int]:
     """已有的反库文件 → {库条目 id: 已产出条数}。用于断点续跑。"""
     done: dict[str, int] = {}
@@ -188,7 +224,9 @@ def preflight(item: dict) -> str:
     if supports in ("neutral", "中立", "none", "null"):
         return "neutral"
     has_text = any(str(item.get(k) or "").strip() for k in ("full_text", "raw_excerpt", "summary"))
-    if not has_text:
+    has_url = bool(str(item.get("url") or "").strip())
+    # ★ 只有链接也算能跑 —— 正文由模块 ⓪ 去取。这是"队友只给 URL"的默认路径。
+    if not has_text and not has_url:
         return "no_text"
     return ""
 
@@ -227,13 +265,19 @@ def main() -> int:
     ap.add_argument("--origin-bonus", type=float, default=1.25)
     ap.add_argument("--no-enrich", action="store_true")
     ap.add_argument("--no-resume", action="store_true", help="不跳过已处理过的条目（会重复写入）")
+    ap.add_argument("--cookies", default="", metavar="PATH",
+                    help="登录态 Cookie 文件（JSON）。用在反爬站点：用户自己登录后导出，"
+                         "只放本地、不进仓库。见 code/cookies.example.json")
     ap.add_argument("--dry-run", action="store_true", help="只看会处理哪些条目，不联网、不写文件")
     ap.add_argument("--quiet", action="store_true", help="不逐条打印引擎漏斗")
     args = ap.parse_args()
 
+    if args.cookies:
+        os.environ["ANTIPODE_COOKIES"] = os.path.abspath(args.cookies)
+
     vault = load_vault(args.vault)
     vault_id = str(vault.get("vault_id") or "default")
-    items = load_items(args.vault, args.items, vault)
+    items = _normalize_items(load_items(args.vault, args.items, vault))
 
     out_path = args.out or os.path.join(_ROOT, "data", f"antipode_{vault_id}.jsonl")
     stats_path = args.stats or os.path.splitext(out_path)[0] + ".stats.json"
@@ -287,7 +331,7 @@ def main() -> int:
                     want = opposite_side(issue, resolve_side(issue, side))
                 except Exception:                                   # noqa: BLE001
                     want = ""
-            print(f"  ▶ {it.get('id'):<22} {str(it.get('title') or '')[:32]:<34}"
+            print(f"  ▶ {it.get('id'):<22} {(it.get('title') or it.get('url') or '')[:32]:<34}"
                   f" {side or '(待判)':<10} →  对立面 {want or '（待引擎推导）'}")
         print("-" * 78)
         for r in rows:
@@ -346,8 +390,11 @@ def main() -> int:
             except RuntimeError as e:
                 # 引擎的可预期拒绝（中立、无正文、开关关）—— 不算故障
                 msg = str(e)
-                r.outcome = ("neutral" if "对立面" in msg or "中立" in msg
-                             else "no_text" if "文本" in msg else "error")
+                r.outcome = ("fetch_failed" if "取不到正文" in msg
+                             else "off_issue" if "串味" in msg
+                             else "no_stance" if "未能从库条目" in msg
+                             else "neutral" if "对立面" in msg or "中立" in msg
+                             else "no_text" if "正文" in msg or "文本" in msg else "error")
                 r.error = msg
             except Exception as e:                                  # noqa: BLE001
                 r.outcome = "error"
@@ -383,7 +430,9 @@ def main() -> int:
         by_outcome[r.outcome] = by_outcome.get(r.outcome, 0) + 1
     total_produced = sum(r.produced for r in rows)
     # 命中率的分母：真正送进检索的条目（预筛掉的和跳过的都没有机会，不该算进分母）
-    ran = [r for r in rows if r.outcome not in ("skipped", "neutral", "no_issue", "no_text", "disabled")]
+    ran = [r for r in rows if r.outcome not in
+          ("skipped", "neutral", "no_stance", "off_issue", "no_issue", "no_text", "disabled",
+           "fetch_failed")]
     hit = (by_outcome.get("produced", 0) / len(ran)) if ran else 0
     # 累计：此前跑过且有产出的 + 本次有产出的
     cum_ids = {k for k, v in done.items() if v > 0} | {

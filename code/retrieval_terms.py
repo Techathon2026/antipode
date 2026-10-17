@@ -268,6 +268,42 @@ TOPIC_GUARD: dict[str, dict] = {
         "unless": r"选型|放弃|迁移|转向|换掉|不如|缺点|后悔|替代",
         "why": "框架源码解析/手写实现教程不含立场，《vue3 源码解析》是已知误判点",
     },
+    # ---- 下面几条按同一套判据补的：**这个词在本议题里是一个意思，在别处是另一个意思** ----
+    "remote_vs_onsite": {
+        "off_topic": r"远程(连接|调试|仓库|桌面|控制|协助|登录|访问|调用|推送|注入|部署|执行|服务器)"
+                     r"|远程\s*(ssh|SSH|git|Git)|RDP|TeamViewer|向日葵远程|跳板机|VPN 连",
+        "unless": r"办公|坐班|通勤|居家|返岗|上班|工位|公司|团队协作|异地|办公室",
+        "why": "「远程」在技术语境里默认指远程连接/远程仓库，不是「远程办公还是坐班」",
+    },
+    "orm_or_raw_sql": {
+        "off_topic": r"SQL\s*注入|慢查询|索引优化|分库分表|事务隔离|数据库设计|建表规范|explain\s*分析",
+        "unless": r"ORM|Hibernate|MyBatis|JPA|ActiveRecord|Prisma|手写\s*SQL|原生\s*SQL|实体映射",
+        "why": "「SQL」相关文章绝大多数是数据库调优，不是「用 ORM 还是手写 SQL」的取舍",
+    },
+    "code_review_strictness": {
+        "off_topic": r"代码规范|ESLint|Prettier|commit\s*(规范|message)|提交规范|Git\s*工作流"
+                     r"|pre-commit|husky|lint-staged",
+        "unless": r"评审|review|Review|门禁|卡点|审查|把关|合并请求|MR|PR",
+        "why": "「规范/检查」类文章讲的是工具配置，不是「评审该严还是该松」",
+    },
+    "typescript_strictness": {
+        "off_topic": r"类型体操|装饰器|泛型(入门|详解|教程)|TypeScript\s*(入门|教程|笔记)"
+                     r"|tsconfig\s*配置|类型声明文件",
+        "unless": r"strict|严格模式|类型安全|any|ts-ignore|类型检查|类型系统",
+        "why": "「TypeScript」教程文遍地都是，大多数不涉及「开不开严格模式」这个取舍",
+    },
+    "oop_vs_fp": {
+        "off_topic": r"23\s*种设计模式|设计模式(详解|大全|入门)|单例模式|工厂模式|观察者模式"
+                     r"|UML|面向对象(三大特性|基础)",
+        "unless": r"函数式|FP|不可变|纯函数|副作用|柯里化|声明式|组合优于继承",
+        "why": "「设计模式」是 OOP 教学，不是「面向对象还是函数式」的路线之争",
+    },
+    "rust_vs_cpp": {
+        "off_topic": r"Rust\s*(安装|环境配置|入门|教程|笔记)|Cargo\s*(入门|教程)"
+                     r"|C\+\+\s*(面试题|基础教程|语法)|指针(详解|入门)",
+        "unless": r"对比|选型|替代|迁移|性能|内存安全|所有权|borrow|重写",
+        "why": "「Rust 入门」与「C++ 教程」是学习材料，不构成立场表达",
+    },
 }
 
 _GUARD_CACHE: dict[str, tuple] = {}

@@ -493,8 +493,14 @@ def _accumulate(agg: ExtractStats, one: ExtractStats) -> None:
 _CACHE: dict[str, dict[str, Any]] = {}
 
 
-def cache_key(text: str) -> str:
-    raw = f"{text}::{TAXONOMY_VERSION}"
+def cache_key(text: str, scope: str = "all") -> str:
+    """缓存键必须带上**议题范围**。
+
+    ⚠️ 实测抓到的真 bug：原来的键只有 text，于是"全表判一次"和"窄化到某个议题重判一次"
+    拿到同一个 key —— 纠偏重判直接读回上次的结果，永远纠不正。
+    scope 表示这次判的是哪几个议题，不同范围不共用缓存。
+    """
+    raw = f"{text}::{TAXONOMY_VERSION}::{scope}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -658,7 +664,9 @@ def _extract_core(
     taxonomy = taxonomy or ISSUE_TAXONOMY
     stats = ExtractStats()
 
-    key = cache_key(text)
+    scope = ("all" if len(taxonomy) >= len(ISSUE_TAXONOMY)
+             else ",".join(sorted(str(t.get("issue_id")) for t in taxonomy)))
+    key = cache_key(text, scope)
     if key in _CACHE:
         blob = _CACHE[key]
         stats = ExtractStats(**blob["stats"])
