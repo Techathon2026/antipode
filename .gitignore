@@ -79,4 +79,9 @@ temp/
 # 登录态凭据：只放本地，绝不入库
 cookies.json
 code/cookies.json
+first/code/cookies.json
 data/_server*.log
+first/data/_server*.log
+
+# 自检真跑产生的临时产物
+first/.workbuddy/

@@ -427,15 +427,29 @@ def render(payload: dict) -> str:
     return html
 
 
+def _resolve(p) -> Path:
+    """相对路径先按项目根找、再按当前目录找。
+
+    这样「cd first && python code/make_demo_page.py」和
+    「在仓库根 python first/code/make_demo_page.py」两种用法都不会把路径拼错。
+    """
+    q = Path(p)
+    if q.is_absolute():
+        return q
+    for base in (ROOT, Path.cwd()):
+        cand = base / q
+        if cand.exists():
+            return cand
+    return ROOT / q
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="生成反库演示页")
     ap.add_argument("--vault", default=str(ROOT / "data" / "vault_demo.json"))
     ap.add_argument("--out", default=str(ROOT / "docs" / "反库演示.html"))
     args = ap.parse_args(argv)
 
-    vault_path = Path(args.vault)
-    if not vault_path.is_absolute():
-        vault_path = ROOT / vault_path
+    vault_path = _resolve(args.vault)
     if not vault_path.exists():
         print(f"[x] 找不到库文件：{vault_path}")
         return 2
